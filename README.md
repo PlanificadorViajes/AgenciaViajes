@@ -41,8 +41,7 @@ Posibilidad de feedback manual.
 Aprobación antes de entregar el resultado final.
 🔄 Flujo del Sistema (LangGraph)
 
-Copy
-Text
+
 Usuario → Planificador → Crítico → Refinador → HITL → Itinerario Final
 El flujo es iterativo, permitiendo múltiples ciclos de mejora antes de la validación final.
 
