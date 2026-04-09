@@ -137,13 +137,30 @@ export default function App() {
 
       const data = await response.json()
 
+      // ✅ Editorial revision (regenerate final document)
       if (data.status === "revised") {
         setFinalPlan(data.travel_plan)
+        setStep("completed")
       }
 
+      // ✅ Re-run flight selection
       if (data.status === "pending_flight_selection") {
         setFlightOptions(data.flight_options)
         setStep("flights")
+      }
+
+      // ✅ Re-run house selection (CRITICAL FIX)
+      if (data.status === "pending_house_selection") {
+        setHouseOptions(data.house_options)
+        setSelectedHouse(null)
+        setFinalPlan(null)
+        setStep("houses")
+      }
+
+      // ✅ If backend already finalized automatically
+      if (data.status === "completed") {
+        setFinalPlan(data.travel_plan)
+        setStep("completed")
       }
 
     } catch (err) {

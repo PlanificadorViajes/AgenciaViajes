@@ -12,7 +12,7 @@ class AzureLLMClient:
     def __init__(self):
         self.endpoint = os.getenv(
             "AZURE_LLM_ENDPOINT",
-            "https://genia4as.services.ai.azure.com/api/projects/firstProject/openai/v1/responses",
+            "https://genia4as.services.ai.azure.com/openai/deployments/gpt-4.1/chat/completions?api-version=2024-02-15-preview",
         )
         self.api_key = os.getenv("AZURE_LLM_API_KEY")
 
@@ -28,11 +28,11 @@ class AzureLLMClient:
         }
 
         payload = {
-            "model": "gpt-4.1",
-            "input": [
+            "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            "temperature": 0.2
         }
 
         response = requests.post(self.endpoint, headers=headers, json=payload)
@@ -41,4 +41,6 @@ class AzureLLMClient:
             raise Exception(f"LLM Error: {response.text}")
 
         data = response.json()
-        return data["output"][0]["content"][0]["text"]
+
+        # Azure Chat Completions format
+        return data["choices"][0]["message"]["content"]

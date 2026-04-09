@@ -22,7 +22,8 @@ class DocumentalistAgent:
         selected_flight: FlightOffer,
         selected_house: HouseOffer,
         flight_alternatives: List[FlightOffer] = None,
-        house_alternatives: List[HouseOffer] = None
+        house_alternatives: List[HouseOffer] = None,
+        revision_comment: str = None
     ) -> str:
         """
         Generate a comprehensive travel plan document in Markdown format.
@@ -60,6 +61,10 @@ class DocumentalistAgent:
         # Next steps
         doc_parts.append(self._generate_next_steps())
         
+        # Optional revision section
+        if revision_comment:
+            doc_parts.append(self._generate_revision_section(revision_comment))
+
         # Footer
         doc_parts.append(self._generate_footer())
         
@@ -181,6 +186,16 @@ class DocumentalistAgent:
 
 *Have a great trip!* 🎉"""
     
+    def _generate_revision_section(self, comment: str) -> str:
+        """Generate revision section if user requested changes"""
+        return f"""## 🔄 Revision Requested
+
+The user requested the following modification:
+
+> {comment}
+
+This updated version incorporates the requested improvements while maintaining the selected flight and accommodation."""
+
     def _generate_footer(self) -> str:
         """Generate document footer"""
         return """---

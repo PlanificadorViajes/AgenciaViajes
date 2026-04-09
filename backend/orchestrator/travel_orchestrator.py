@@ -9,6 +9,8 @@ from backend.agents.flight_analyst import FlightAnalystAgent
 from backend.agents.house_planner import HousePlannerAgent
 from backend.agents.house_analyst import HouseAnalystAgent
 from backend.agents.documentalist import DocumentalistAgent
+from backend.llm.client import AzureLLMClient
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +35,7 @@ class TravelOrchestrator:
         self.house_planner = HousePlannerAgent()
         self.house_analyst = HouseAnalystAgent()
         self.documentalist = DocumentalistAgent()
+        self.llm = AzureLLMClient()
         logger.info("[Orchestrator] Initialized with all agents")
     
     async def create_travel_plan(self, user_request: Dict) -> Dict:
@@ -293,9 +296,57 @@ class TravelOrchestrator:
                 }
 
             elif review_type == "criteria":
-                # Restart from flight search (simple MVP behavior)
                 logger.info("[Orchestrator] Re-running search due to criteria change")
 
+                constraints = await self._extract_constraints(comment)
+                logger.info(f"[Orchestrator] Parsed constraints object: {constraints}")
+
+                entity = constraints.get("entity")
+                if isinstance(entity, str):
+                    entity = entity.lower()
+
+                # --- HOUSE constraints ---
+                if entity == "house" and selected_flight:
+                    flight_offer = FlightOffer(**selected_flight)
+
+                    house_request = HouseRequest(
+                        destination_country=user_request['destination_country'],
+                        destination_city=user_request.get('destination_city'),
+                        check_in=datetime.fromisoformat(user_request['departure_date']),
+                        check_out=datetime.fromisoformat(user_request['return_date']),
+                        guests=user_request['passengers'],
+                        max_budget=user_request['max_budget'],
+                        selected_flight_price=flight_offer.price
+                    )
+
+                    all_houses = await self.house_planner.search_accommodations(house_request)
+
+                    filtered = all_houses
+                    for key, value in constraints.get("constraints", {}).items():
+                        if value is not None:
+                            filtered = [
+                                h for h in filtered
+                                if hasattr(h, key) and getattr(h, key) == value
+                            ]
+
+                    if not filtered:
+                        return {
+                            "status": "error",
+                            "message": "No accommodations match the requested criteria."
+                        }
+
+                    ranked = self.house_analyst.analyze_and_rank(filtered, max_results=5)
+
+                    logger.info(f"[Orchestrator] Returning {len(ranked)} filtered accommodation options to user")
+
+                    return {
+                        "status": "pending_house_selection",
+                        "selected_flight": selected_flight,
+                        "house_options": [h.dict() for h in ranked],
+                        "travel_plan": None
+                    }
+
+                # --- FLIGHT constraints or fallback ---
                 return await self.create_travel_plan(user_request)
 
             else:
@@ -310,6 +361,84 @@ class TravelOrchestrator:
                 "status": "error",
                 "message": str(e)
             }
+
+    async def _extract_constraints(self, comment: str) -> Dict:
+        """
+        Uses LLM to extract structured constraints from user comment.
+        Returns dict:
+        {
+            "entity": "house" | "flight" | None,
+            "constraints": { ... }
+        }
+        """
+        system_prompt = """
+You are a multilingual constraint extractor for a travel planning system.
+
+The user may write in Spanish or English.
+
+Return ONLY valid JSON with this structure:
+
+{
+  "entity": "house" | "flight" | null,
+  "constraints": {
+    "bathrooms": integer or null,
+    "bedrooms": integer or null,
+    "beds": integer or null,
+    "max_guests": integer or null
+  }
+}
+
+Interpret both Spanish and English terms:
+
+Spanish examples:
+- baño / baños → bathrooms
+- dormitorio / dormitorios / habitación / habitaciones → bedrooms
+- cama / camas → beds
+- personas / huéspedes → max_guests
+
+English examples:
+- bathroom(s)
+- bedroom(s)
+- bed(s)
+- guest(s)
+
+Rules:
+- If the comment refers to accommodation features, entity = "house".
+- If it refers to flights (mañana, morning, directo, direct, barato, cheaper, etc), entity = "flight".
+- Extract numeric values whether written as digits or words (e.g., "dos", "two").
+- If not applicable, return null values.
+- Return ONLY JSON. No explanation. No markdown.
+"""
+
+        try:
+            logger.info(f"[Orchestrator] Sending comment to LLM: {comment}")
+            raw = self.llm.generate(system_prompt=system_prompt, user_prompt=comment)
+            logger.info(f"[Orchestrator] Raw LLM response: {raw}")
+
+            # --- Defensive JSON extraction ---
+            start = raw.find("{")
+            end = raw.rfind("}") + 1
+
+            if start == -1 or end == -1:
+                logger.warning("[Orchestrator] No JSON object detected in LLM response")
+                return {"entity": None, "constraints": {}}
+
+            json_str = raw[start:end]
+
+            parsed = json.loads(json_str)
+
+            if not isinstance(parsed, dict):
+                return {"entity": None, "constraints": {}}
+
+            parsed.setdefault("constraints", {})
+
+            logger.info(f"[Orchestrator] Extracted constraints: {parsed}")
+
+            return parsed
+
+        except Exception as e:
+            logger.warning(f"[Orchestrator] Constraint extraction failed: {e}")
+            return {"entity": None, "constraints": {}}
 
 
 # Singleton instance
