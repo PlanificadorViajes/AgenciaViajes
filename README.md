@@ -42,8 +42,18 @@ Aprobación antes de entregar el resultado final.
 🔄 Flujo del Sistema (LangGraph)
 
 
-Usuario → Planificador → Crítico → Refinador → HITL → Itinerario Final
-El flujo es iterativo, permitiendo múltiples ciclos de mejora antes de la validación final.
+Usuario
+  ↓
+Planificador
+  ↓
+Crítico
+  ↓
+Refinador
+  ↓
+HITL
+  ↓
+Itinerario Final
+
 
 🏗️ Arquitectura
 Framework de orquestación: LangGraph
