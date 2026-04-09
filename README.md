@@ -1,21 +1,22 @@
 # 🌍 Travel Planner MVP  
-## Sistema Multi‑Agente de Planificación de Viajes con Human‑in‑the‑Loop
+## Sistema Multi‑Agente de Planificación de Viajes con Human‑in‑the‑Loop (HITL)
 
 ---
 
 ## 📌 Descripción General
 
-**Travel Planner MVP** es un sistema modular de planificación de viajes basado en una arquitectura multi‑agente con orquestación centralizada y capacidad de revisión humana iterativa (Human‑in‑the‑Loop).
+**Travel Planner MVP** es un sistema de planificación de viajes basado en una arquitectura multi‑agente con orquestación centralizada, motor de scoring explicable y capacidad de refinamiento iterativo mediante Human‑in‑the‑Loop (HITL).
 
-El objetivo del proyecto es demostrar, a nivel técnico y arquitectónico, cómo diseñar un sistema inteligente que:
+El proyecto demuestra cómo diseñar un sistema inteligente que:
 
-- ✅ Utiliza múltiples agentes especializados  
-- ✅ Implementa un motor de scoring ponderado multi‑criterio  
-- ✅ Explica de forma transparente sus recomendaciones  
-- ✅ Permite refinamiento iterativo mediante intervención humana  
-- ✅ Mantiene una separación clara de responsabilidades  
+- ✅ Orquesta múltiples agentes especializados
+- ✅ Implementa scoring ponderado multi‑criterio
+- ✅ Permite refinamiento semántico dinámico mediante LLM
+- ✅ Gestiona estados explícitos entre frontend y backend
+- ✅ Mantiene separación clara de responsabilidades
+- ✅ Maneja errores de presupuesto de forma controlada
 
-Este proyecto está concebido como un **MVP técnico sólido**, priorizando arquitectura, explicabilidad y diseño modular por encima de integraciones externas complejas.
+El objetivo es arquitectónico y técnico: demostrar diseño modular, explicabilidad y control iterativo.
 
 ---
 
@@ -25,15 +26,18 @@ Este proyecto está concebido como un **MVP técnico sólido**, priorizando arqu
 
 - Arquitectura modular orientada a agentes
 - Orquestación centralizada
+- Backend stateless
+- Flujo dirigido por estado (`status`)
 - Separación clara entre:
-  - Capa de Presentación (Frontend)
-  - API Backend
-  - Lógica Multi‑Agente
-  - Modelos de Dominio
+  - Frontend (React)
+  - API Backend (FastAPI)
+  - Orquestador
+  - Agentes especializados
+  - Modelos de dominio
 
 ---
 
-## 🔁 Flujo General del Sistema
+# 🔁 Flujo General del Sistema
 
 ```
 Usuario
@@ -64,67 +68,113 @@ TravelOrchestrator
 # 🧠 Agentes del Sistema
 
 ## ✈️ FlightPlannerAgent
-Genera opciones de vuelos (datos sintéticos en el MVP).
+Genera vuelos sintéticos (mock data en este MVP).
 
 ## 📊 FlightAnalystAgent
-Evalúa y rankea vuelos mediante un sistema de scoring ponderado:
+Rankea vuelos usando scoring ponderado:
 
 - Precio (35%)
-- Número de escalas (25%)
+- Escalas (25%)
 - Duración (20%)
 - Alineación con presupuesto (20%)
 
-Incluye desglose detallado con valores máximos:
-
-Ejemplo:
-
-```
-Precio: 18.4 / 35
-Escalas: 25 / 25
-Duración: 15 / 20
-Presupuesto: 12 / 20
-Total: 70.4 / 100
-```
+Incluye desglose transparente por criterio.
 
 ---
 
 ## 🏠 HousePlannerAgent
-Genera opciones de alojamiento en función del presupuesto restante.
+Genera alojamientos sintéticos en función del presupuesto restante.
+
+⚠️ En este MVP no hay scraping real ni APIs externas.
+
+---
 
 ## 📈 HouseAnalystAgent
 Evalúa alojamientos con scoring multi‑criterio:
 
 - Precio (30%)
 - Rating (25%)
-- Número de reviews (15%)
+- Reviews (15%)
 - Amenities (15%)
 - Alineación con presupuesto (15%)
 
-También incluye desglose transparente y valores máximos.
+Incluye desglose detallado por criterio.
 
 ---
 
 ## 📝 DocumentalistAgent
 Genera el documento final del viaje en formato Markdown estructurado.
 
-Permite regeneración del plan cuando se activa el modo de revisión humana.
+Permite regeneración tras revisión editorial.
+
+---
+
+## 🧠 Constraint Extractor (LLM)
+
+El sistema incluye un módulo semántico basado en LLM que:
+
+- Interpreta comentarios del usuario
+- Extrae restricciones estructuradas
+- Soporta español e inglés
+- Devuelve JSON limpio
+
+Ejemplo:
+
+```
+"quiero 1 baño y 2 dormitorios"
+```
+
+Se transforma en:
+
+```
+{
+  "entity": "house",
+  "constraints": {
+    "bathrooms": 1,
+    "bedrooms": 2
+  }
+}
+```
+
+Esto permite re‑ejecutar agentes dinámicamente.
 
 ---
 
 # 👤 Human‑in‑the‑Loop (HITL)
 
-El sistema incorpora revisión humana con dos modos explícitos:
+El sistema soporta dos modos de revisión:
 
 ## 📝 Revisar redacción
-- Regenera el documento teniendo en cuenta el comentario del usuario.
-- No modifica vuelos ni alojamientos seleccionados.
+Regenera el documento final sin modificar vuelo ni alojamiento.
 
 ## 🔁 Cambiar criterios
-- Reinicia el flujo desde la búsqueda de vuelos.
-- Reejecuta agentes manteniendo la solicitud original del usuario.
-- Permite iteración controlada sin sobre‑ingeniería.
+- Interpreta semánticamente el comentario
+- Reejecuta búsqueda de vuelos o alojamientos
+- Devuelve nuevas opciones
+- Requiere confirmación explícita del usuario
 
-Este enfoque mantiene el MVP limpio y arquitectónicamente coherente.
+No hay selección automática oculta.
+
+---
+
+# 🚨 Manejo de Presupuesto Insuficiente
+
+Si el vuelo seleccionado deja presupuesto insuficiente para alojamiento:
+
+El backend devuelve:
+
+```
+status: "no_accommodation_budget"
+```
+
+El frontend:
+
+- Muestra mensaje claro
+- Vuelve a selección de vuelos
+- Evita pantalla en blanco
+- Mantiene coherencia de estado
+
+Este diseño prioriza claridad y control del usuario.
 
 ---
 
@@ -135,35 +185,37 @@ Este enfoque mantiene el MVP limpio y arquitectónicamente coherente.
 - FastAPI
 - Pydantic
 - Orquestación asíncrona
-- Diseño modular por agentes
+- Arquitectura modular por agentes
+- Cliente LLM (Azure compatible)
 
 ## Frontend
 - React
 - Vite
 - Fetch API
-- Flujo por estados (step‑based UI)
+- Flujo basado en estados (`step`)
+- Renderizado condicional según `status`
 
 ---
 
 # 📊 Motor de Scoring
 
-Características principales:
+Características:
 
-- Normalización relativa de valores
-- Ponderación explícita por criterio
+- Normalización relativa
+- Ponderación explícita
 - Transparencia total (value / max)
-- Visualización mediante barra proporcional
-- Resaltado automático de la mejor opción
+- Visualización gráfica
+- Resaltado automático de mejor opción
 
-Este diseño prioriza explicabilidad y confianza del usuario.
+Diseñado para explicabilidad.
 
 ---
 
 # 🚀 Ejecución del Proyecto
 
-## 1️⃣ Backend
+## Backend
 
-Desde la raíz del proyecto:
+Desde la raíz:
 
 ```bash
 uvicorn backend.api.app:app --reload
@@ -177,12 +229,12 @@ http://127.0.0.1:8000
 
 ---
 
-## 2️⃣ Frontend
+## Frontend
 
 ```bash
 cd frontend
 npm install
-npm start
+npm run dev
 ```
 
 Disponible en:
@@ -212,67 +264,70 @@ frontend/
 
 # ✅ Capacidades Actuales del MVP
 
-- Flujo completo de planificación de viaje
-- Sistema multi‑agente funcional
-- Ranking ponderado multi‑criterio
-- Desglose explicable de recomendaciones
-- Visualización clara en frontend
-- Iteración mediante HITL
-- Backend stateless (sin base de datos)
+- Flujo completo de planificación
+- Arquitectura multi‑agente
+- Scoring explicable
+- Refinamiento semántico con LLM
+- HITL real
+- Manejo de presupuesto insuficiente
+- Estado dirigido por backend
+- Confirmación explícita tras cambios
 
 ---
 
-# ❌ Alcance Deliberadamente Limitado (MVP)
+# ❌ Alcance Deliberadamente Limitado
 
-Para mantener el enfoque arquitectónico:
+Este MVP:
 
-- No integra APIs reales de vuelos
-- No incluye scraping real
-- No utiliza base de datos
-- No incorpora autenticación
-- No implementa caché distribuida
+- No integra APIs reales
+- No realiza scraping real
+- No incluye base de datos
+- No incluye autenticación
 - No está preparado para producción
 
-Estas extensiones quedan abiertas para futuras iteraciones.
-
----
-
-# 🎯 Principios de Diseño
-
-- Simplicidad antes que sobre‑ingeniería
-- Explicabilidad antes que caja negra
-- Modularidad clara
-- Orquestación explícita
-- Iteración controlada con intervención humana
+El foco es arquitectónico.
 
 ---
 
 # 📈 Posibles Evoluciones Futuras
 
+- Fallback automático inteligente entre vuelos
 - Persistencia con PostgreSQL
-- Caché con Redis
-- Integración con APIs reales
+- Cache distribuida
 - Versionado de planes
-- Optimización avanzada de costes
-- Despliegue en contenedores Docker
+- Explainability avanzada
+- Integración con APIs reales
+- Dockerización
+
+---
+
+# 🎯 Principios de Diseño
+
+- Modularidad clara
+- Orquestación explícita
+- Estados bien definidos
+- Explicabilidad
+- Control humano en decisiones
+- Simplicidad antes que sobre‑ingeniería
 
 ---
 
 # 🏁 Conclusión
 
-Travel Planner MVP demuestra cómo diseñar un sistema multi‑agente explicable, modular y refinable mediante intervención humana.
+Travel Planner MVP no es solo un generador de texto.
 
-No es simplemente un generador de texto, sino un motor de decisión con:
+Es un sistema multi‑agente con:
 
-- Orquestación estructurada  
-- Scoring transparente  
-- Iteración controlada  
-- Separación clara de responsabilidades  
+- Orquestación centralizada
+- Scoring ponderado
+- Refinamiento semántico
+- Human‑in‑the‑Loop real
+- Manejo robusto de estados
 
-Se trata de un MVP técnico sólido, defendible y extensible.
+Un MVP técnico sólido, coherente y extensible.
 
 ---
 
 ## 👨‍💻 Autor
 
-Proyecto desarrollado como demostración de arquitectura multi‑agente con orquestación centralizada y revisión humana iterativa.
+Proyecto desarrollado como demostración de arquitectura multi‑agente con orquestación centralizada, motor de decisión explicable y revisión humana iterativa.
