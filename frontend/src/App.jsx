@@ -79,6 +79,14 @@ export default function App() {
 
       const data = await response.json()
 
+      // ✅ Caso: presupuesto insuficiente para alojamiento
+      if (data.status === "no_accommodation_budget") {
+        setError(data.message)
+        setFlightOptions(data.flight_options)
+        setStep("flights")
+        return
+      }
+
       setHouseOptions(data.house_options)
       setStep("houses")
     } catch (err) {

@@ -151,13 +151,13 @@ class TravelOrchestrator:
             all_houses = await self.house_planner.search_accommodations(house_request)
             
             if not all_houses:
+                logger.warning("[Orchestrator] No accommodations within remaining budget")
+
                 return {
-                    'status': 'error',
-                    'message': 'No accommodations found within remaining budget',
+                    'status': 'no_accommodation_budget',
+                    'message': 'El vuelo seleccionado deja presupuesto insuficiente para alojamiento. Considera elegir otro vuelo o aumentar el presupuesto.',
                     'flight_options': flight_options,
-                    'selected_flight': selected_flight_data,
-                    'house_options': [],
-                    'travel_plan': None
+                    'selected_flight': selected_flight_data
                 }
             
             top_houses = self.house_analyst.analyze_and_rank(all_houses, max_results=5)
