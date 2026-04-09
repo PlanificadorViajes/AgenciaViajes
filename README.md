@@ -1,11 +1,14 @@
 🌍 DevAgents Lab – Planificador Inteligente de Viajes
 Propuesta 4: Sistema Multi‑Agente con LangGraph
-
 📌 Descripción del Proyecto
 Este proyecto consiste en el desarrollo de un MVP de un Planificador Inteligente de Viajes, implementado como un sistema multi‑agente orquestado con LangGraph.
 
-El sistema es capaz de generar, criticar y refinar itinerarios de viaje personalizados de forma iterativa, incorporando un mecanismo de Human‑In‑The‑Loop (HITL) para validación y supervisión antes de entregar la propuesta final.
+El sistema es capaz de:
 
+Generar itinerarios personalizados
+Criticar propuestas automáticamente
+Refinar planes de forma iterativa
+Incorporar un mecanismo Human‑In‑The‑Loop (HITL) para validación antes de entregar la versión final
 🎯 Problema a Resolver
 Los usuarios desean organizar viajes optimizados según:
 
@@ -24,24 +27,25 @@ Permitir revisión humana antes de la versión final
 El sistema está compuesto por múltiples agentes especializados que colaboran entre sí:
 
 1️⃣ Agente Planificador
-Genera un itinerario inicial basado en las preferencias del usuario.
-Distribuye actividades por día.
-Optimiza tiempo y presupuesto.
+Genera un itinerario inicial basado en las preferencias del usuario
+Distribuye actividades por día
+Optimiza tiempo y presupuesto
 2️⃣ Agente Crítico
-Evalúa coherencia, viabilidad y calidad del itinerario.
-Detecta conflictos de horario o sobrecarga de actividades.
-Sugiere mejoras o ajustes.
+Evalúa coherencia, viabilidad y calidad del itinerario
+Detecta conflictos de horario o sobrecarga de actividades
+Sugiere mejoras o ajustes
 3️⃣ Agente Refinador
-Aplica mejoras sugeridas.
-Ajusta el plan respetando restricciones.
-Produce una versión optimizada.
+Aplica mejoras sugeridas
+Ajusta el plan respetando restricciones
+Produce una versión optimizada
 4️⃣ Supervisión Humana (HITL)
-Revisión del plan generado.
-Posibilidad de feedback manual.
-Aprobación antes de entregar el resultado final.
+Revisión del plan generado
+Posibilidad de feedback manual
+Aprobación antes de entregar el resultado final
 🔄 Flujo del Sistema (LangGraph)
 
-
+Copy
+Text
 Usuario
   ↓
 Planificador
@@ -53,8 +57,6 @@ Refinador
 HITL
   ↓
 Itinerario Final
-
-
 🏗️ Arquitectura
 Framework de orquestación: LangGraph
 Modelo(s) LLM: (ej. OpenAI GPT)
@@ -75,7 +77,7 @@ Perfilado de usuario persistente
 Interfaz web interactiva
 📊 Ejemplo de Input
 
-
+Copy
 Json
 {
   "destino": "Roma",
@@ -84,7 +86,6 @@ Json
   "intereses": ["historia", "gastronomía", "arte"],
   "restricciones": ["no más de 3 actividades intensivas por día"]
 }
-
 📄 Ejemplo de Output Esperado
 Itinerario día por día
 Justificación de selección de actividades
@@ -94,8 +95,15 @@ Explicación de optimización de tiempos
 🚧 MVP en desarrollo
 📌 Enfoque académico / experimental (DevAgents Lab)
 🧩 Orientado a aprendizaje de sistemas multi‑agente
-
 🏁 Conclusión
-Este proyecto explora cómo los sistemas multi‑agente pueden colaborar para resolver problemas complejos de planificación, combinando generación creativa, evaluación crítica y supervisión humana.
+Este proyecto explora cómo los sistemas multi‑agente pueden colaborar para resolver problemas complejos de planificación, combinando:
 
+Generación creativa
+Evaluación crítica
+Supervisión humana
 El resultado es un planificador más robusto, transparente y adaptable que un sistema monolítico tradicional.
+
+
+
+
+
