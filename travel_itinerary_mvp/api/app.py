@@ -16,6 +16,7 @@ PostgreSQL (future integration layer prepared)
 """
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from uuid import uuid4
@@ -25,6 +26,15 @@ from travel_itinerary_mvp.graph.orchestrator import ItineraryOrchestrator
 
 app = FastAPI(title="Travel Itinerary MVP API")
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 orchestrator = ItineraryOrchestrator()
 
 
@@ -33,8 +43,12 @@ orchestrator = ItineraryOrchestrator()
 # -----------------------------
 
 class TravelRequestDTO(BaseModel):
-    user_input: str
-    budget: Optional[int] = None
+    origin_airport: str
+    destination_country: str
+    departure_date: str
+    return_date: str
+    passengers: int
+    budget: float
 
 
 class TravelPlanResponse(BaseModel):
@@ -53,9 +67,27 @@ class TravelPlanResponse(BaseModel):
 def create_travel_request(request: TravelRequestDTO):
     session_id = str(uuid4())
 
+    # Convert structured data to natural language for the agents
+    user_input = f"""
+    Quiero planificar un viaje con las siguientes características:
+    - Origen: Aeropuerto {request.origin_airport}
+    - Destino: {request.destination_country}
+    - Fecha de ida: {request.departure_date}
+    - Fecha de vuelta: {request.return_date}
+    - Número de pasajeros: {request.passengers}
+    - Presupuesto: {request.budget}€
+    """.strip()
+
     state = orchestrator.process_request(
-        user_input=request.user_input,
-        constraints={"budget": request.budget} if request.budget else None
+        user_input=user_input,
+        constraints={
+            "budget": request.budget,
+            "origin_airport": request.origin_airport,
+            "destination_country": request.destination_country,
+            "departure_date": request.departure_date,
+            "return_date": request.return_date,
+            "passengers": request.passengers
+        }
     )
 
     return TravelPlanResponse(
