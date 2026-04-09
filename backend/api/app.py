@@ -55,3 +55,18 @@ def select_house(payload: dict):
         house_options=payload["house_options"],
         flight_alternatives=payload.get("flight_alternatives"),
     )
+
+
+@app.post("/travel/review")
+async def review_plan(payload: dict):
+    """
+    HITL Step:
+    type: "editorial" | "criteria"
+    comment: user feedback
+    context: original data (user_request, selected_flight, selected_house)
+    """
+    return await orchestrator.review_plan(
+        review_type=payload["type"],
+        comment=payload["comment"],
+        context=payload["context"],
+    )

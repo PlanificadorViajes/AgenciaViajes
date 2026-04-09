@@ -21,6 +21,7 @@ export default function App() {
   const [selectedHouse, setSelectedHouse] = useState(null)
 
   const [finalPlan, setFinalPlan] = useState(null)
+  const [reviewComment, setReviewComment] = useState("")
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -118,6 +119,38 @@ export default function App() {
     }
   }
 
+  const handleReview = async (type) => {
+    try {
+      const response = await fetch("http://127.0.0.1:8000/travel/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type,
+          comment: reviewComment,
+          context: {
+            user_request: formData,
+            selected_flight: selectedFlight,
+            selected_house: selectedHouse
+          }
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.status === "revised") {
+        setFinalPlan(data.travel_plan)
+      }
+
+      if (data.status === "pending_flight_selection") {
+        setFlightOptions(data.flight_options)
+        setStep("flights")
+      }
+
+    } catch (err) {
+      console.error("Error in review", err)
+    }
+  }
+
   return (
     <div className="container">
       <h1>🌍 Travel Planner MVP</h1>
@@ -139,9 +172,49 @@ export default function App() {
       {step === "flights" && (
         <div>
           <h2>Selecciona un vuelo</h2>
-          {flightOptions.map(f => (
-            <div key={f.id} className="card">
+          {flightOptions.map((f, index) => (
+            <div
+              key={f.id}
+              className="card"
+              style={{
+                border: index === 0 ? "2px solid green" : "1px solid #ccc",
+                padding: "12px",
+                marginBottom: "12px",
+                borderRadius: "8px"
+              }}
+            >
               <p><strong>{f.airline}</strong> - €{f.price}</p>
+              <p>⭐ Score total: <strong>{f.score}</strong></p>
+              <div style={{ background: "#eee", height: "8px", borderRadius: "4px", marginBottom: "8px" }}>
+                <div
+                  style={{
+                    width: `${f.score}%`,
+                    height: "8px",
+                    background: "green",
+                    borderRadius: "4px"
+                  }}
+                />
+              </div>
+
+              {index === 0 && <p style={{ color: "green" }}>🏆 Mejor opción calidad/precio</p>}
+
+              {f.scoring_breakdown && (
+                <div style={{ fontSize: "0.9em", marginBottom: "8px" }}>
+                  <div>
+                    💰 Precio: {f.scoring_breakdown.price_score.value} / {f.scoring_breakdown.price_score.max}
+                  </div>
+                  <div>
+                    🛑 Escalas: {f.scoring_breakdown.stops_score.value} / {f.scoring_breakdown.stops_score.max}
+                  </div>
+                  <div>
+                    ⏱ Duración: {f.scoring_breakdown.duration_score.value} / {f.scoring_breakdown.duration_score.max}
+                  </div>
+                  <div>
+                    📊 Presupuesto: {f.scoring_breakdown.budget_alignment.value} / {f.scoring_breakdown.budget_alignment.max}
+                  </div>
+                </div>
+              )}
+
               <button onClick={() => chooseFlight(f)}>Seleccionar</button>
             </div>
           ))}
@@ -151,9 +224,52 @@ export default function App() {
       {step === "houses" && (
         <div>
           <h2>Selecciona alojamiento</h2>
-          {houseOptions.map(h => (
-            <div key={h.id} className="card">
+          {houseOptions.map((h, index) => (
+            <div
+              key={h.id}
+              className="card"
+              style={{
+                border: index === 0 ? "2px solid green" : "1px solid #ccc",
+                padding: "12px",
+                marginBottom: "12px",
+                borderRadius: "8px"
+              }}
+            >
               <p><strong>{h.name}</strong> - €{h.total_price}</p>
+              <p>⭐ Score total: <strong>{h.score}</strong></p>
+              <div style={{ background: "#eee", height: "8px", borderRadius: "4px", marginBottom: "8px" }}>
+                <div
+                  style={{
+                    width: `${h.score}%`,
+                    height: "8px",
+                    background: "green",
+                    borderRadius: "4px"
+                  }}
+                />
+              </div>
+
+              {index === 0 && <p style={{ color: "green" }}>🏆 Mejor alojamiento recomendado</p>}
+
+              {h.scoring_breakdown && (
+                <div style={{ fontSize: "0.9em", marginBottom: "8px" }}>
+                  <div>
+                    💰 Precio: {h.scoring_breakdown.price_score.value} / {h.scoring_breakdown.price_score.max}
+                  </div>
+                  <div>
+                    ⭐ Rating: {h.scoring_breakdown.rating_score.value} / {h.scoring_breakdown.rating_score.max}
+                  </div>
+                  <div>
+                    📝 Reviews: {h.scoring_breakdown.reviews_score.value} / {h.scoring_breakdown.reviews_score.max}
+                  </div>
+                  <div>
+                    🏠 Amenities: {h.scoring_breakdown.amenities_score.value} / {h.scoring_breakdown.amenities_score.max}
+                  </div>
+                  <div>
+                    📊 Presupuesto: {h.scoring_breakdown.budget_alignment.value} / {h.scoring_breakdown.budget_alignment.max}
+                  </div>
+                </div>
+              )}
+
               <button onClick={() => chooseHouse(h)}>Seleccionar</button>
             </div>
           ))}
@@ -164,6 +280,25 @@ export default function App() {
         <div>
           <h2>📋 Plan Final</h2>
           <pre style={{ whiteSpace: "pre-wrap" }}>{finalPlan}</pre>
+
+          <div style={{ marginTop: "20px" }}>
+            <h3>🧑 Revisión humana (HITL)</h3>
+            <textarea
+              placeholder="Añadir comentario o solicitar cambios..."
+              value={reviewComment}
+              onChange={(e) => setReviewComment(e.target.value)}
+              style={{ width: "100%", height: "80px", marginBottom: "10px" }}
+            />
+            <button
+              style={{ marginRight: "10px" }}
+              onClick={() => handleReview("editorial")}
+            >
+              📝 Revisar redacción
+            </button>
+            <button onClick={() => handleReview("criteria")}>
+              🔁 Cambiar criterios
+            </button>
+          </div>
         </div>
       )}
 

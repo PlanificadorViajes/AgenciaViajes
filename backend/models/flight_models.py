@@ -30,6 +30,7 @@ class FlightOffer(BaseModel):
     source: str  # Skyscanner, Google Flights, etc.
     booking_url: Optional[str] = None
     score: Optional[float] = None  # Quality-price score
+    scoring_breakdown: Optional[dict] = None  # Detailed score explanation (MVP transparency)
 
 
 class FlightSearchResult(BaseModel):

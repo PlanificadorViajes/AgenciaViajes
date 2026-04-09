@@ -32,8 +32,9 @@ class HouseAnalystAgent:
         # Calculate score for each offer
         scored_offers = []
         for offer in offers:
-            score = self._calculate_score(offer, offers)
+            score, breakdown = self._calculate_score(offer, offers)
             offer.score = score
+            offer.scoring_breakdown = breakdown
             scored_offers.append(offer)
         
         # Sort by score (higher is better)
@@ -45,48 +46,70 @@ class HouseAnalystAgent:
         
         return top_offers
     
-    def _calculate_score(self, offer: HouseOffer, all_offers: List[HouseOffer]) -> float:
+    def _calculate_score(self, offer: HouseOffer, all_offers: List[HouseOffer]):
         """
-        Calculate quality-price score for an accommodation offer.
-        Score ranges from 0 to 100 (higher is better).
+        Improved weighted scoring with transparent breakdown.
+        Returns (total_score, breakdown_dict)
         """
-        # Get price range
         prices = [o.total_price for o in all_offers]
         min_price = min(prices)
         max_price = max(prices)
-        
-        # Normalize price (0-40 points, lower price = higher score)
+
+        # --- PRICE (30%) ---
         if max_price > min_price:
-            price_score = 40 * (1 - (offer.total_price - min_price) / (max_price - min_price))
+            normalized_price = 1 - (offer.total_price - min_price) / (max_price - min_price)
         else:
-            price_score = 40
-        
-        # Rating score (0-30 points)
-        rating_score = 0
-        if offer.rating:
-            # Scale from 0-5 to 0-30
-            rating_score = (offer.rating / 5.0) * 30
-        
-        # Reviews count score (0-15 points) - logarithmic scale
-        reviews_score = 0
+            normalized_price = 1
+
+        price_score = normalized_price * 30
+
+        # --- RATING (25%) ---
+        rating_score = (offer.rating / 5.0) * 25 if offer.rating else 0
+
+        # --- REVIEWS (15%) ---
+        import math
         if offer.reviews_count:
-            # More reviews = more reliable
-            # 0 reviews = 0, 10 reviews = 7.5, 100 reviews = 11.25, 500+ reviews = 15
-            import math
-            normalized = min(offer.reviews_count / 500.0, 1.0)
-            reviews_score = 15 * math.sqrt(normalized)
-        
-        # Amenities score (0-15 points)
+            normalized_reviews = min(offer.reviews_count / 500.0, 1.0)
+            reviews_score = 15 * math.sqrt(normalized_reviews)
+        else:
+            reviews_score = 0
+
+        # --- AMENITIES (15%) ---
         amenities_count = len(offer.amenities) if offer.amenities else 0
-        # Assume max 10 amenities for normalization
         amenities_score = min(amenities_count / 10.0, 1.0) * 15
-        
-        total_score = price_score + rating_score + reviews_score + amenities_score
-        
-        logger.debug(
-            f"[{self.name}] {offer.id}: price={price_score:.1f}, "
-            f"rating={rating_score:.1f}, reviews={reviews_score:.1f}, "
-            f"amenities={amenities_score:.1f}, total={total_score:.1f}"
-        )
-        
-        return round(total_score, 2)
+
+        # --- BUDGET ALIGNMENT (15%) ---
+        budget_alignment = normalized_price * 15
+
+        total_score = price_score + rating_score + reviews_score + amenities_score + budget_alignment
+
+        breakdown = {
+            "price_score": {
+                "value": round(price_score, 2),
+                "max": 30
+            },
+            "rating_score": {
+                "value": round(rating_score, 2),
+                "max": 25
+            },
+            "reviews_score": {
+                "value": round(reviews_score, 2),
+                "max": 15
+            },
+            "amenities_score": {
+                "value": round(amenities_score, 2),
+                "max": 15
+            },
+            "budget_alignment": {
+                "value": round(budget_alignment, 2),
+                "max": 15
+            },
+            "total": {
+                "value": round(total_score, 2),
+                "max": 100
+            }
+        }
+
+        logger.debug(f"[{self.name}] {offer.id} breakdown: {breakdown}")
+
+        return round(total_score, 2), breakdown

@@ -257,6 +257,60 @@ class TravelOrchestrator:
                 'travel_plan': None
             }
 
+    async def review_plan(self, review_type: str, comment: str, context: Dict) -> Dict:
+        """
+        HITL review logic.
+        review_type: "editorial" | "criteria"
+        comment: user feedback
+        context: {
+            user_request,
+            selected_flight,
+            selected_house
+        }
+        """
+        logger.info(f"[Orchestrator] Review requested. Type: {review_type}")
+
+        try:
+            user_request = context.get("user_request")
+            selected_flight = context.get("selected_flight")
+            selected_house = context.get("selected_house")
+
+            if review_type == "editorial":
+                # Regenerate document with comment
+                flight_offer = FlightOffer(**selected_flight)
+                house_offer = HouseOffer(**selected_house)
+
+                revised_plan = self.documentalist.generate_travel_plan(
+                    user_request=user_request,
+                    selected_flight=flight_offer,
+                    selected_house=house_offer,
+                    revision_comment=comment  # Documentalist can optionally use this
+                )
+
+                return {
+                    "status": "revised",
+                    "travel_plan": revised_plan
+                }
+
+            elif review_type == "criteria":
+                # Restart from flight search (simple MVP behavior)
+                logger.info("[Orchestrator] Re-running search due to criteria change")
+
+                return await self.create_travel_plan(user_request)
+
+            else:
+                return {
+                    "status": "error",
+                    "message": "Invalid review type"
+                }
+
+        except Exception as e:
+            logger.error(f"[Orchestrator] Error in review process: {e}")
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+
 
 # Singleton instance
 orchestrator = TravelOrchestrator()

@@ -31,8 +31,10 @@ class FlightAnalystAgent:
         # Calculate score for each offer
         scored_offers = []
         for offer in offers:
-            score = self._calculate_score(offer, offers)
+            score, breakdown = self._calculate_score(offer, offers)
             offer.score = score
+            # Attach breakdown for frontend visibility (MVP transparency)
+            offer.scoring_breakdown = breakdown
             scored_offers.append(offer)
         
         # Sort by score (higher is better)
@@ -44,34 +46,33 @@ class FlightAnalystAgent:
         
         return top_offers
     
-    def _calculate_score(self, offer: FlightOffer, all_offers: List[FlightOffer]) -> float:
+    def _calculate_score(self, offer: FlightOffer, all_offers: List[FlightOffer]):
         """
-        Calculate quality-price score for a flight offer.
-        Score ranges from 0 to 100 (higher is better).
+        Improved weighted scoring with transparent breakdown.
+        Returns (total_score, breakdown_dict)
         """
-        # Get price range
         prices = [o.price for o in all_offers]
         min_price = min(prices)
         max_price = max(prices)
-        
-        # Normalize price (0-50 points, lower price = higher score)
+
+        # --- PRICE (35%) ---
         if max_price > min_price:
-            price_score = 50 * (1 - (offer.price - min_price) / (max_price - min_price))
+            normalized_price = 1 - (offer.price - min_price) / (max_price - min_price)
         else:
-            price_score = 50
-        
-        # Stops score (0-30 points)
-        # 0 stops = 30 points, 1 stop = 20 points, 2+ stops = 10 points
+            normalized_price = 1
+
+        price_score = normalized_price * 35
+
+        # --- STOPS (25%) ---
         if offer.stops == 0:
-            stops_score = 30
+            stops_score = 25
         elif offer.stops == 1:
-            stops_score = 20
+            stops_score = 18
         else:
             stops_score = 10
-        
-        # Duration score (0-20 points) - simple heuristic
-        # Parse duration if available
-        duration_score = 15  # Default mid-range score
+
+        # --- DURATION (20%) ---
+        duration_score = 12
         try:
             if 'h' in offer.duration:
                 hours = int(offer.duration.split('h')[0].strip())
@@ -85,9 +86,36 @@ class FlightAnalystAgent:
                     duration_score = 5
         except:
             pass
-        
-        total_score = price_score + stops_score + duration_score
-        
-        logger.debug(f"[{self.name}] {offer.id}: price={price_score:.1f}, stops={stops_score}, duration={duration_score}, total={total_score:.1f}")
-        
-        return round(total_score, 2)
+
+        # --- BUDGET ALIGNMENT (20%) ---
+        # Penalize extreme expensive options
+        budget_alignment = 20 * normalized_price
+
+        total_score = price_score + stops_score + duration_score + budget_alignment
+
+        breakdown = {
+            "price_score": {
+                "value": round(price_score, 2),
+                "max": 35
+            },
+            "stops_score": {
+                "value": stops_score,
+                "max": 25
+            },
+            "duration_score": {
+                "value": duration_score,
+                "max": 20
+            },
+            "budget_alignment": {
+                "value": round(budget_alignment, 2),
+                "max": 20
+            },
+            "total": {
+                "value": round(total_score, 2),
+                "max": 100
+            }
+        }
+
+        logger.debug(f"[{self.name}] {offer.id} breakdown: {breakdown}")
+
+        return round(total_score, 2), breakdown

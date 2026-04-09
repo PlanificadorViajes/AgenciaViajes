@@ -36,6 +36,7 @@ class HouseOffer(BaseModel):
     booking_url: Optional[str] = None
     image_url: Optional[str] = None
     score: Optional[float] = None  # Quality-price score
+    scoring_breakdown: Optional[dict] = None  # Detailed score explanation (MVP transparency)
 
 
 class HouseSearchResult(BaseModel):
