@@ -26,13 +26,21 @@ class CriticAgent:
             return "Evaluate the travel itinerary for quality and feasibility."
     
     def evaluate_plan(self, plan: Dict[str, Any]) -> Dict[str, Any]:
-        """Evaluate a travel itinerary plan."""
-        self.logger.info("Starting plan evaluation")
-        
+        """
+        Evaluate a travel itinerary plan and return structured ValidationReport-compatible dict.
+        """
+        self.logger.info("Starting plan evaluation (structured)")
         try:
             feedback = self._evaluate_mock_plan(plan)
-            self.logger.info(f"Plan evaluation completed. Score: {feedback['score']:.1f}")
-            return feedback
+            requires_human_review = feedback["score"] < 5.0
+
+            return {
+                "score": feedback["score"],
+                "approved": feedback["approved"],
+                "issues": feedback.get("issues", []),
+                "improvements": feedback.get("improvements", []),
+                "requires_human_review": requires_human_review
+            }
         except Exception as e:
             self.logger.error(f"Error evaluating plan: {str(e)}")
             raise

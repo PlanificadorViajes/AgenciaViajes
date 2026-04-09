@@ -5,7 +5,8 @@ import logging
 from typing import Dict, Any, Optional
 
 from .state import PlanState
-from ..agents.generator import GeneratorAgent
+from ..agents.analyst import AnalystAgent
+from ..agents.generator import PlannerAgent
 from ..agents.critic import CriticAgent
 from ..config.settings import SYSTEM_SETTINGS
 
@@ -15,7 +16,8 @@ class ItineraryOrchestrator:
     """Orchestrates the iterative plan generation and refinement process."""
     
     def __init__(self):
-        self.generator = GeneratorAgent()
+        self.analyst = AnalystAgent()
+        self.planner = PlannerAgent()
         self.critic = CriticAgent()
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
     
@@ -45,35 +47,30 @@ class ItineraryOrchestrator:
         
         try:
             while state.should_continue(max_iterations):
-                # Generate plan
-                state.set_status("generating")
-                self.logger.info(f"Starting iteration {state.iteration + 1}")
-                
-                plan = self.generator.generate_plan(
-                    user_input=user_input,
-                    constraints=constraints,
-                    feedback=state.critic_feedback
-                )
+                state.set_status("analyzing")
+                spec = self.analyst.analyze(user_input, constraints.get("budget") if constraints else None)
+
+                state.set_status("planning")
+                plan = self.planner.generate_plan(spec.dict())
                 state.update_plan(plan)
-                
-                # Evaluate plan
+
                 state.set_status("evaluating")
                 feedback = self.critic.evaluate_plan(plan)
                 state.update_feedback(feedback)
-                
-                self.logger.info(state.get_iteration_summary())
-                
-                if state.approved:
+
+                if feedback.get("requires_human_review"):
+                    state.set_status("requires_human_review")
+                    break
+
+                if feedback.get("approved"):
                     state.set_status("completed")
-                    self.logger.info(f"Plan approved after {state.iteration} iterations")
                     break
-                elif state.iteration >= max_iterations:
+
+                if state.iteration >= max_iterations:
                     state.set_status("max_iterations_reached")
-                    self.logger.warning(f"Reached maximum iterations ({max_iterations})")
                     break
-                else:
-                    state.set_status("refining")
-                    self.logger.info("Plan not approved, continuing to next iteration")
+
+                state.set_status("refining")
             
         except Exception as e:
             error_msg = f"Error in orchestration process: {str(e)}"

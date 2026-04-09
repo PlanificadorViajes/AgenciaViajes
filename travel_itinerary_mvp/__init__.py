@@ -11,7 +11,7 @@ __description__ = "Iterative travel itinerary generation system with agent-based
 
 from .graph.orchestrator import ItineraryOrchestrator
 from .graph.state import PlanState
-from .agents.generator import GeneratorAgent
+from .agents.generator import PlannerAgent
 from .agents.critic import CriticAgent
 from .persistence.repository import ItineraryRepository
 from .memory.session_store import SessionStore
@@ -19,7 +19,7 @@ from .memory.session_store import SessionStore
 __all__ = [
     "ItineraryOrchestrator",
     "PlanState", 
-    "GeneratorAgent",
+    "PlannerAgent",
     "CriticAgent",
     "ItineraryRepository",
     "SessionStore"

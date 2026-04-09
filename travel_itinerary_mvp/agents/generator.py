@@ -8,73 +8,55 @@ from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
 from ..config.settings import SYSTEM_SETTINGS
+from travel_itinerary_mvp.llm.client import AzureLLMClient
+import json
 
 logger = logging.getLogger(__name__)
 
-class GeneratorAgent:
-    """Travel itinerary generator agent."""
+class PlannerAgent:
+    """Planner agent that generates a TravelPlan from StructuredTravelSpec."""
     
     def __init__(self):
         self.prompt_template = self._load_prompt_template()
+        self.llm = AzureLLMClient()
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
     
     def _load_prompt_template(self) -> str:
-        """Load the generator prompt template from file."""
         try:
             with open(SYSTEM_SETTINGS.GENERATOR_PROMPT_FILE, 'r', encoding='utf-8') as f:
                 return f.read()
         except FileNotFoundError:
-            self.logger.error(f"Generator prompt file not found")
             return "Generate a detailed travel itinerary based on requirements."
     
-    def generate_plan(self, user_input: str, constraints: Optional[Dict[str, Any]] = None, feedback: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Generate a travel itinerary plan."""
-        self.logger.info("Starting plan generation")
-        
+    def generate_plan(self, spec: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate travel plan using LLM.
+        """
+        self.logger.info("Starting LLM-based planning")
+
+        system_prompt = "Generate a structured travel plan as JSON."
+        user_prompt = json.dumps(spec)
+
+        response = self.llm.generate(system_prompt, user_prompt)
+
         try:
-            plan = self._generate_mock_plan(user_input, constraints, feedback)
-            self.logger.info("Plan generation completed successfully")
-            return plan
-        except Exception as e:
-            self.logger.error(f"Error generating plan: {str(e)}")
-            raise
+            parsed = json.loads(response)
+            return parsed
+        except Exception:
+            return self._generate_mock_plan_from_spec(spec)
     
-    def _generate_mock_plan(self, user_input: str, constraints: Optional[Dict[str, Any]] = None, feedback: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Generate a mock travel plan for demonstration."""
-        days = self._extract_days(user_input)
-        destination = self._extract_destination(user_input)
-        budget = self._extract_budget(user_input, constraints)
-        
+    def _generate_mock_plan_from_spec(self, spec: Dict[str, Any]) -> Dict[str, Any]:
+        days = spec.get("duration_days", 7)
+        destination = spec.get("destination", "Europe")
+        budget = spec.get("budget") or 1500
+
         return {
-            "plan": {
-                "title": f"{days}-Day Trip to {destination}",
-                "duration": f"{days} days",
-                "destination": destination,
-                "budget_estimate": {
-                    "total": budget,
-                    "currency": "EUR",
-                    "breakdown": {
-                        "accommodation": int(budget * 0.4),
-                        "transportation": int(budget * 0.2),
-                        "activities": int(budget * 0.25),
-                        "food": int(budget * 0.1),
-                        "miscellaneous": int(budget * 0.05)
-                    }
-                },
-                "itinerary": self._generate_daily_itinerary(days, destination),
-                "practical_info": {
-                    "best_time_to_visit": "Spring and Fall",
-                    "weather_considerations": "Pack layers and rain jacket",
-                    "cultural_notes": "Respect local customs",
-                    "language": self._get_language(destination),
-                    "currency": "EUR",
-                    "time_zone": "UTC+1"
-                }
-            },
-            "justification": f"Balanced itinerary within {budget}€ budget, activities grouped geographically.",
-            "assumptions": ["Mid-season pricing", "Public transport", "Moderate fitness level"],
-            "alternatives": ["Extend stay for relaxed pace", "Budget accommodations available"],
-            "risks": ["Weather may affect activities", "Peak pricing possible", "Advance booking needed"]
+            "destination": destination,
+            "duration_days": days,
+            "budget": budget,
+            "days": self._generate_daily_itinerary(days, destination),
+            "justification": f"Generated plan for {destination} within budget {budget}",
+            "status": "draft"
         }
     
     def _extract_days(self, user_input: str) -> int:

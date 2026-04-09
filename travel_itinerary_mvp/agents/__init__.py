@@ -1,6 +1,6 @@
 """Agents module for the travel itinerary system."""
 
-from .generator import GeneratorAgent
+from .generator import PlannerAgent
 from .critic import CriticAgent
 
-__all__ = ["GeneratorAgent", "CriticAgent"]
+__all__ = ["PlannerAgent", "CriticAgent"]
