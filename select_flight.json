@@ -1,0 +1,30 @@
+{
+  "user_request": {
+    "origin_airport": "MAD",
+    "destination_country": "Italy",
+    "departure_date": "2026-07-10",
+    "return_date": "2026-07-17",
+    "passengers": 2,
+    "max_budget": 2000
+  },
+  "selected_flight_id": "FL7329",
+  "flight_options": [
+    {
+      "id": "FL7329",
+      "airline": "Air France",
+      "origin": "MAD",
+      "destination": "Italy",
+      "departure_date": "2026-07-10",
+      "departure_time": "15:15",
+      "arrival_date": "2026-07-10",
+      "arrival_time": "20:15",
+      "duration": "1h 31m",
+      "stops": 1,
+      "price": 1123.32,
+      "currency": "EUR",
+      "source": "Expedia",
+      "booking_url": "https://booking.example.com/flight/7",
+      "score": 90.0
+    }
+  ]
+}

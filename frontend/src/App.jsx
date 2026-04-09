@@ -7,107 +7,112 @@ export default function App() {
     departure_date: "",
     return_date: "",
     passengers: "",
-    budget: ""
+    max_budget: ""
   })
+
+  const [step, setStep] = useState("form") // form | flights | houses | completed
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
-  const [validationErrors, setValidationErrors] = useState({})
+
+  const [flightOptions, setFlightOptions] = useState([])
+  const [selectedFlight, setSelectedFlight] = useState(null)
+
+  const [houseOptions, setHouseOptions] = useState([])
+  const [selectedHouse, setSelectedHouse] = useState(null)
+
+  const [finalPlan, setFinalPlan] = useState(null)
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
-    // Clear validation error for this field when user starts typing
-    if (validationErrors[name]) {
-      setValidationErrors(prev => ({
-        ...prev,
-        [name]: ""
-      }))
-    }
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const validateForm = () => {
-    const errors = {}
-
-    if (!formData.origin_airport.trim()) {
-      errors.origin_airport = "El aeropuerto de origen es obligatorio"
-    }
-
-    if (!formData.destination_country.trim()) {
-      errors.destination_country = "El país destino es obligatorio"
-    }
-
-    if (!formData.departure_date) {
-      errors.departure_date = "La fecha de ida es obligatoria"
-    }
-
-    if (!formData.return_date) {
-      errors.return_date = "La fecha de vuelta es obligatoria"
-    }
-
-    if (formData.departure_date && formData.return_date) {
-      const departureDate = new Date(formData.departure_date)
-      const returnDate = new Date(formData.return_date)
-      if (returnDate <= departureDate) {
-        errors.return_date = "La fecha de vuelta debe ser posterior a la fecha de ida"
-      }
-    }
-
-    if (!formData.passengers) {
-      errors.passengers = "El número de pasajeros es obligatorio"
-    } else if (parseInt(formData.passengers) < 1) {
-      errors.passengers = "Debe haber al menos 1 pasajero"
-    } else if (parseInt(formData.passengers) > 10) {
-      errors.passengers = "Máximo 10 pasajeros"
-    }
-
-    if (!formData.budget) {
-      errors.budget = "El presupuesto es obligatorio"
-    } else if (parseFloat(formData.budget) < 0) {
-      errors.budget = "El presupuesto debe ser un valor positivo"
-    }
-
-    setValidationErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const generatePlan = async () => {
-    if (!validateForm()) {
-      setError("Por favor, completa todos los campos obligatorios correctamente")
-      return
-    }
-
+  // STEP 1 → START
+  const startTravel = async () => {
     setLoading(true)
     setError(null)
-    setResult(null)
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/travel-request", {
+      const response = await fetch("http://127.0.0.1:8000/travel/start", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          origin_airport: formData.origin_airport,
-          destination_country: formData.destination_country,
-          departure_date: formData.departure_date,
-          return_date: formData.return_date,
+          ...formData,
           passengers: parseInt(formData.passengers),
-          budget: parseFloat(formData.budget)
+          max_budget: parseFloat(formData.max_budget)
         })
       })
 
-      if (!response.ok) {
-        throw new Error("API error")
-      }
+      const data = await response.json()
+
+      if (!response.ok) throw new Error("Error en backend")
+
+      setFlightOptions(data.flightOptions || data.flight_options)
+      setStep("flights")
+    } catch (err) {
+      setError("Error iniciando planificación")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // STEP 2 → SELECT FLIGHT
+  const chooseFlight = async (flight) => {
+    setLoading(true)
+    setSelectedFlight(flight)
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/travel/select-flight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_request: {
+            ...formData,
+            passengers: parseInt(formData.passengers),
+            max_budget: parseFloat(formData.max_budget)
+          },
+          selected_flight_id: flight.id,
+          flight_options: flightOptions
+        })
+      })
 
       const data = await response.json()
-      setResult(data)
+
+      setHouseOptions(data.house_options)
+      setStep("houses")
     } catch (err) {
-      setError("Error al generar el itinerario. Por favor, intenta de nuevo.")
+      setError("Error seleccionando vuelo")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // STEP 3 → SELECT HOUSE
+  const chooseHouse = async (house) => {
+    setLoading(true)
+    setSelectedHouse(house)
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/travel/select-house", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_request: {
+            ...formData,
+            passengers: parseInt(formData.passengers),
+            max_budget: parseFloat(formData.max_budget)
+          },
+          selected_flight: selectedFlight,
+          selected_house_id: house.id,
+          house_options: houseOptions
+        })
+      })
+
+      const data = await response.json()
+      setFinalPlan(data.travel_plan)
+      setStep("completed")
+    } catch (err) {
+      setError("Error generando plan final")
     } finally {
       setLoading(false)
     }
@@ -115,138 +120,54 @@ export default function App() {
 
   return (
     <div className="container">
-      <h1>🌍 Travel Itinerary Generator</h1>
+      <h1>🌍 Travel Planner MVP</h1>
 
-      <form className="travel-form" onSubmit={(e) => { e.preventDefault(); generatePlan(); }}>
-        <div className="form-group">
-          <label htmlFor="origin_airport">
-            Aeropuerto de Origen <span className="required">*</span>
-          </label>
-          <input
-            type="text"
-            id="origin_airport"
-            name="origin_airport"
-            placeholder="ej: MAD, BCN, AGP..."
-            value={formData.origin_airport}
-            onChange={handleInputChange}
-            className={validationErrors.origin_airport ? "error" : ""}
-          />
-          {validationErrors.origin_airport && (
-            <span className="error-message">{validationErrors.origin_airport}</span>
-          )}
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="destination_country">
-            País Destino <span className="required">*</span>
-          </label>
-          <input
-            type="text"
-            id="destination_country"
-            name="destination_country"
-            placeholder="ej: Francia, Japón, Italia..."
-            value={formData.destination_country}
-            onChange={handleInputChange}
-            className={validationErrors.destination_country ? "error" : ""}
-          />
-          {validationErrors.destination_country && (
-            <span className="error-message">{validationErrors.destination_country}</span>
-          )}
-        </div>
-
-        <div className="form-row">
-          <div className="form-group">
-            <label htmlFor="departure_date">
-              Fecha de Ida <span className="required">*</span>
-            </label>
-            <input
-              type="date"
-              id="departure_date"
-              name="departure_date"
-              value={formData.departure_date}
-              onChange={handleInputChange}
-              min={new Date().toISOString().split('T')[0]}
-              className={validationErrors.departure_date ? "error" : ""}
-            />
-            {validationErrors.departure_date && (
-              <span className="error-message">{validationErrors.departure_date}</span>
-            )}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="return_date">
-              Fecha de Vuelta <span className="required">*</span>
-            </label>
-            <input
-              type="date"
-              id="return_date"
-              name="return_date"
-              value={formData.return_date}
-              onChange={handleInputChange}
-              min={formData.departure_date || new Date().toISOString().split('T')[0]}
-              className={validationErrors.return_date ? "error" : ""}
-            />
-            {validationErrors.return_date && (
-              <span className="error-message">{validationErrors.return_date}</span>
-            )}
-          </div>
-        </div>
-
-        <div className="form-row">
-          <div className="form-group">
-            <label htmlFor="passengers">
-              Número de Pasajeros <span className="required">*</span>
-            </label>
-            <input
-              type="number"
-              id="passengers"
-              name="passengers"
-              placeholder="1"
-              min="1"
-              max="10"
-              value={formData.passengers}
-              onChange={handleInputChange}
-              className={validationErrors.passengers ? "error" : ""}
-            />
-            {validationErrors.passengers && (
-              <span className="error-message">{validationErrors.passengers}</span>
-            )}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="budget">
-              Presupuesto (€) <span className="required">*</span>
-            </label>
-            <input
-              type="number"
-              id="budget"
-              name="budget"
-              placeholder="1000"
-              min="0"
-              step="0.01"
-              value={formData.budget}
-              onChange={handleInputChange}
-              className={validationErrors.budget ? "error" : ""}
-            />
-            {validationErrors.budget && (
-              <span className="error-message">{validationErrors.budget}</span>
-            )}
-          </div>
-        </div>
-
-        <button type="submit" disabled={loading}>
-          {loading ? "Generando..." : "Generar Plan de Viaje"}
-        </button>
-      </form>
-
-      {error && <p className="error-banner">{error}</p>}
-
-      {result && (
-        <div className="result">
-          <h2>📋 Plan de Viaje Generado</h2>
-          <pre>{JSON.stringify(result, null, 2)}</pre>
+      {step === "form" && (
+        <div>
+          <input name="origin_airport" placeholder="Origen" onChange={handleInputChange} />
+          <input name="destination_country" placeholder="Destino" onChange={handleInputChange} />
+          <input type="date" name="departure_date" onChange={handleInputChange} />
+          <input type="date" name="return_date" onChange={handleInputChange} />
+          <input type="number" name="passengers" placeholder="Pasajeros" onChange={handleInputChange} />
+          <input type="number" name="max_budget" placeholder="Presupuesto" onChange={handleInputChange} />
+          <button onClick={startTravel} disabled={loading}>
+            {loading ? "Buscando vuelos..." : "Buscar vuelos"}
+          </button>
         </div>
       )}
+
+      {step === "flights" && (
+        <div>
+          <h2>Selecciona un vuelo</h2>
+          {flightOptions.map(f => (
+            <div key={f.id} className="card">
+              <p><strong>{f.airline}</strong> - €{f.price}</p>
+              <button onClick={() => chooseFlight(f)}>Seleccionar</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {step === "houses" && (
+        <div>
+          <h2>Selecciona alojamiento</h2>
+          {houseOptions.map(h => (
+            <div key={h.id} className="card">
+              <p><strong>{h.name}</strong> - €{h.total_price}</p>
+              <button onClick={() => chooseHouse(h)}>Seleccionar</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {step === "completed" && (
+        <div>
+          <h2>📋 Plan Final</h2>
+          <pre style={{ whiteSpace: "pre-wrap" }}>{finalPlan}</pre>
+        </div>
+      )}
+
+      {error && <p style={{ color: "red" }}>{error}</p>}
     </div>
   )
 }

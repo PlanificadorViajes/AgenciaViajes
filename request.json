@@ -1,0 +1,8 @@
+{
+  "origin_airport": "MAD",
+  "destination_country": "Italy",
+  "departure_date": "2026-07-10",
+  "return_date": "2026-07-17",
+  "passengers": 2,
+  "max_budget": 2000
+}
