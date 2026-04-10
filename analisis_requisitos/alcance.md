@@ -1,131 +1,202 @@
-# DevAgents Lab – Alcance del MVP  
-## Planificador Inteligente de Viajes (Sistema Multi‑Agente con LangGraph)
+# 🌍 Travel Planner MVP – Alcance del Sistema  
+## Sistema Multi‑Agente con Orquestación Centralizada y Human‑in‑the‑Loop
 
 ---
 
 # 1️⃣ Alcance Funcional del MVP
 
-## ✅ Funcionalidades incluidas
+## ✅ Funcionalidades Incluidas
 
-- Creación de solicitud de itinerario con datos mínimos:
-  - Destino
-  - Fechas
-  - Presupuesto
-  - Intereses
-  - Restricciones
-- Generación automática de itinerario inicial.
-- Evaluación automática mediante agente crítico.
-- Ciclo iterativo controlado Generador ↔ Crítico.
-- Límite configurable de iteraciones (N).
-- Finalización automática por límite.
-- Intervención humana (HITL):
-  - Revisión y aprobación.
-  - Rechazo con nueva iteración.
-  - Forzar finalización manual.
-- Persistencia básica del resultado final.
-- Memoria de sesión activa.
-- Logging básico de ejecución y errores.
-- Manejo simple de excepciones en agentes.
-- Prompts configurables externos.
+El MVP actual implementa un sistema completo de planificación de viajes con arquitectura multi‑agente y control iterativo mediante intervención humana.
+
+### 📌 Entrada de Usuario
+
+El sistema permite crear una solicitud de viaje con:
+
+- Aeropuerto de origen
+- País de destino
+- Ciudad opcional
+- Fechas (ida y vuelta)
+- Número de pasajeros
+- Presupuesto máximo
 
 ---
 
-## 🔄 Proceso End-to-End Cubierto
+### ✈️ Fase 1 – Búsqueda y Selección de Vuelo
+
+- Generación de vuelos sintéticos.
+- Evaluación automática mediante scoring ponderado.
+- Visualización transparente del desglose de puntuación.
+- Selección explícita por parte del usuario.
+
+---
+
+### 🏠 Fase 2 – Búsqueda y Selección de Alojamiento
+
+- Cálculo automático del presupuesto restante.
+- Generación de alojamientos sintéticos.
+- Evaluación mediante scoring multi‑criterio.
+- Selección explícita por parte del usuario.
+- Manejo de caso especial:
+  - Si no hay alojamiento dentro del presupuesto → el sistema informa y redirige a selección de vuelo.
+
+---
+
+### 📝 Fase 3 – Generación de Plan Final
+
+- Generación de documento final en formato Markdown.
+- Inclusión de:
+  - Vuelo seleccionado
+  - Alojamiento seleccionado
+  - Alternativas
+  - Desglose presupuestario
+  - Pasos siguientes
+
+---
+
+### 👤 Human‑in‑the‑Loop (HITL)
+
+El sistema soporta dos modos de revisión:
+
+#### 📝 Revisión editorial
+- Regenera únicamente el documento final.
+- No altera vuelo ni alojamiento.
+
+#### 🔁 Cambio de criterios (semántico)
+- Interpreta comentario del usuario mediante LLM.
+- Extrae restricciones estructuradas.
+- Re‑ejecuta búsqueda de vuelos o alojamientos.
+- Devuelve nuevas opciones para confirmación explícita.
+- Nunca selecciona automáticamente sin intervención humana.
+
+---
+
+### 🧠 Extracción Semántica de Restricciones
+
+El sistema incorpora un módulo LLM que:
+
+- Interpreta comentarios en español o inglés.
+- Extrae:
+  - bathrooms
+  - bedrooms
+  - beds
+  - max_guests
+- Devuelve JSON estructurado.
+- Permite filtrado dinámico sin reglas hardcodeadas.
+
+---
+
+## 🔄 Flujo End‑to‑End Cubierto
 
 1. Usuario crea solicitud.
-2. Orquestador crea sesión activa.
-3. Generación → Evaluación → Refinamiento (iterativo).
-4. Control por contador de iteraciones.
-5. Revisión humana (HITL).
-6. Persistencia del resultado final.
-7. Registro en logs y cierre del proceso.
+2. Generación y ranking de vuelos.
+3. Selección explícita de vuelo.
+4. Generación y ranking de alojamientos.
+5. Selección explícita de alojamiento.
+6. Generación del plan final.
+7. Revisión HITL opcional.
+8. Regeneración o filtrado según feedback.
 
 ---
 
-## 👥 Actores
+## 👥 Actores del Sistema
 
 - Usuario viajero
-- Orquestador LangGraph
-- Agente Generador
-- Agente Crítico
-- Supervisor humano (HITL)
-- Módulo de memoria
-- Servicio de persistencia
+- Frontend React
+- Backend FastAPI
+- TravelOrchestrator
+- FlightPlannerAgent
+- FlightAnalystAgent
+- HousePlannerAgent
+- HouseAnalystAgent
+- DocumentalistAgent
+- Módulo LLM (Constraint Extractor)
 
 ---
 
 ## 🚫 Fuera de Alcance
 
-- Integraciones reales con APIs externas (Google Maps, Skyscanner, etc.).
-- Optimización matemática real de rutas.
-- Estimación financiera precisa.
-- Persistencia avanzada multiusuario.
-- Autenticación y autorización.
-- Interfaz web compleja.
-- Perfilado persistente del usuario.
-- Evaluación automática cuantitativa avanzada de calidad.
+El MVP **NO incluye**:
+
+- Integraciones reales con APIs externas.
+- Scraping real.
+- Persistencia en base de datos.
+- Autenticación o multiusuario.
+- Optimización matemática avanzada.
+- Gestión concurrente avanzada.
+- Infraestructura distribuida.
+
+El sistema opera en modo sintético (mock data).
 
 ---
 
 # 2️⃣ Alcance Técnico
 
-## 🏗️ Arquitectura
+## 🏗 Arquitectura
 
 - Arquitectura modular monolítica.
-- Orquestación mediante **LangGraph**.
-- Flujo dirigido por grafo con nodos:
-
-  - Generador  
-  - Crítico  
-  - Decisión  
-  - HITL  
-  - Persistencia  
+- Orquestación centralizada mediante clase `TravelOrchestrator`.
+- Backend stateless.
+- Flujo dirigido por estados (`status`).
+- Comunicación frontend ↔ backend vía REST.
 
 ---
 
 ## 🧩 Componentes Principales
 
-- Graph Orchestrator
-- Agent: Generator
-- Agent: Critic
-- Session Memory Module
-- Persistence Module
-- Logging Module
-- Prompt Configuration Layer
+- API Layer (FastAPI)
+- TravelOrchestrator
+- Agentes especializados:
+  - FlightPlanner
+  - FlightAnalyst
+  - HousePlanner
+  - HouseAnalyst
+  - Documentalist
+- Cliente LLM (Azure compatible)
+- Frontend React basado en estados (`step`)
 
 ---
 
-## 🔁 Tipo de Orquestación
+## 🔁 Orquestación
 
-Control explícito de estados en LangGraph con transiciones condicionales:
+La lógica de flujo depende del `status` devuelto por backend:
 
-- Si `iteraciones < N` → volver a Generador.
-- Si `iteraciones ≥ N` → finalizar automáticamente.
-- Si HITL rechaza → reiniciar ciclo.
-- Si HITL fuerza cierre → finalizar inmediatamente.
+- `pending_flight_selection`
+- `pending_house_selection`
+- `completed`
+- `revised`
+- `no_accommodation_budget`
+- `error`
+
+El frontend reacciona explícitamente a cada estado.
 
 ---
 
-## 🧠 Gestión de Memoria
+## 🧠 Gestión de Estado
 
-Memoria en sesión (in-memory).
+El backend es stateless.
 
-Almacena:
+El frontend mantiene:
 
-- Input del usuario.
-- Versiones del itinerario.
-- Feedback estructurado.
-- Contador de iteraciones.
+- step
+- selectedFlight
+- selectedHouse
+- finalPlan
+- flightOptions
+- houseOptions
 
-No es persistente entre reinicios del sistema.
+No existe persistencia entre reinicios.
 
 ---
 
 ## ⚠️ Manejo de Errores
 
-- Try/catch a nivel de nodo.
-- Registro en log.
-- Mensaje controlado al usuario o supervisor.
+Incluye:
+
+- Manejo de excepciones en orquestador.
+- Logging estructurado.
+- Estado explícito para presupuesto insuficiente.
+- Mensaje claro al usuario.
 
 No incluye:
 
@@ -137,12 +208,11 @@ No incluye:
 
 ## 💾 Persistencia
 
-- Almacenamiento simple:
-  - Archivo JSON  
-  - Base de datos ligera  
+El MVP no implementa persistencia estructurada.
 
-- Solo se guarda la versión final.
-- No hay versionado histórico completo en el MVP.
+- No hay base de datos.
+- No se almacenan sesiones.
+- No hay versionado histórico.
 
 ---
 
@@ -150,238 +220,111 @@ No incluye:
 
 ## 🎯 Estratégicos
 
-- Validar viabilidad de arquitectura multi‑agente con LangGraph.
-- Demostrar mejora iterativa frente a generación única.
-- Incorporar HITL como capa de gobernanza.
-- Servir como base experimental para futuras extensiones.
+- Validar arquitectura multi‑agente modular.
+- Demostrar integración controlada de LLM.
+- Implementar HITL real y gobernanza explícita.
+- Mostrar diseño orientado a estado robusto.
 
 ---
 
 ## ⚙️ Operativos
 
-- Implementar ciclo iterativo estable.
-- Garantizar límite de iteraciones configurable.
-- Asegurar salida estructurada consistente.
-- Permitir intervención humana sin romper el flujo.
-- Registrar trazabilidad mínima del proceso.
+- Garantizar coherencia entre frontend y backend.
+- Asegurar selección explícita en cada fase.
+- Manejar correctamente presupuestos insuficientes.
+- Permitir refinamiento semántico sin romper flujo.
 
 ---
 
 # 4️⃣ Límites del Sistema
 
-## 🔒 Límites Funcionales
+## 🔒 Funcionales
 
-- No garantiza exactitud real de horarios o precios.
-- No valida datos externos.
-- No asegura coherencia geográfica real.
+- No garantiza precios reales.
+- No valida disponibilidad real.
+- No realiza reservas reales.
 
 ---
 
-## 🧱 Límites Técnicos
+## 🧱 Técnicos
 
 - Memoria volátil.
-- Sin paralelización de agentes.
-- Dependencia directa del LLM.
-- No hay versionado fuerte de estados.
-
----
-
-## ⚙️ Límites Operativos
-
-- Máximo N iteraciones.
-- HITL obligatorio antes de entrega.
-- Finalización manual posible en cualquier momento.
+- Sin paralelización.
+- Dependencia directa del LLM para interpretación semántica.
+- Sin infraestructura de producción.
 
 ---
 
 # 5️⃣ Supuestos Clave
 
-## 🧪 Supuestos Técnicos
+## 🧪 Técnicos
 
-- El LLM responde en formato estructurado consistente.
-- El feedback del crítico es accionable.
-- LangGraph maneja correctamente estados cíclicos.
-
----
-
-## 👤 Supuestos de Usuario
-
-- El usuario entrega datos mínimos válidos.
-- El supervisor humano tiene criterio suficiente para validar.
+- El LLM devuelve JSON correctamente formateado.
+- Los modelos Pydantic mantienen coherencia estructural.
+- El frontend respeta el contrato de estados.
 
 ---
 
-## 🖥️ Supuestos de Infraestructura
+## 👤 De Usuario
 
-- Sistema mono-instancia.
+- El usuario proporciona datos válidos.
+- El usuario confirma explícitamente tras cambios.
+
+---
+
+## 🖥️ Infraestructura
+
+- Sistema mono‑instancia.
+- Uso académico / demostrativo.
 - Baja concurrencia.
-- Persistencia local suficiente para MVP.
 
 ---
 
 # 6️⃣ Riesgos Identificados
 
-## 🛠️ Técnicos
+## 🛠 Técnicos
 
-- Inconsistencia en formato JSON del generador.
-- Loop infinito si falla la lógica de decisión.
-- Pérdida de sesión en reinicio.
-- Acoplamiento fuerte entre prompts y lógica.
+- Inconsistencia en respuestas del LLM.
+- Cambios de contrato entre frontend y backend.
+- Falta de persistencia ante reinicio.
 
 ---
 
-## 📉 Calidad del Output
+## 📉 Experiencia de Usuario
 
-- Refinamientos que no mejoran realmente.
-- Crítico poco exigente o demasiado severo.
-- Deriva semántica entre versiones.
+- Presupuesto insuficiente frecuente.
+- Falta de datos reales.
+- Latencia acumulada por re‑ejecuciones.
 
 ---
 
 ## 📈 Escalabilidad
 
-- No soporta múltiples sesiones concurrentes de forma robusta.
-- Memoria en RAM no escalable.
+- No preparado para múltiples sesiones concurrentes.
 - Sin separación de workers.
+- Sin cache.
 
 ---
 
-## 👤 Experiencia de Usuario
+# 7️⃣ Métricas de Éxito (KPIs del MVP)
 
-- Latencia acumulativa por iteraciones.
-- Falta de visibilidad del progreso.
-- Falta de explicación clara de los cambios.
-
----
-
-## 🧑‍⚖️ Gobernanza / HITL
-
-- Criterios de aprobación no definidos.
-- Subjetividad del supervisor no trazada.
-- No hay auditoría estructurada del rechazo.
+- Flujo completo sin errores.
+- Re‑ejecución correcta tras cambio de criterios.
+- Consistencia del estado frontend.
+- Manejo correcto de presupuesto insuficiente.
+- Coherencia estructural del output final.
 
 ---
 
-# 7️⃣ Métricas de Éxito (KPIs)
+# ✅ Conclusión
 
-## 📊 Calidad
+El MVP actual implementa correctamente:
 
-- % de itinerarios aprobados en primera revisión.
-- Promedio de mejoras aceptadas por iteración.
-- Score de coherencia estructural (validación JSON).
+- Arquitectura multi‑agente modular.
+- Orquestación centralizada.
+- Scoring explicable.
+- Refinamiento semántico con LLM.
+- Human‑in‑the‑Loop real.
+- Manejo robusto de estados y presupuesto.
 
----
-
-## 🔁 Iteración
-
-- Número promedio de iteraciones por solicitud.
-- % de procesos que alcanzan máximo N.
-- % de finalizaciones manuales.
-
----
-
-## ⚠️ Robustez
-
-- Tasa de errores por agente.
-- Tasa de fallos de parsing estructural.
-- % de sesiones interrumpidas.
-
----
-
-## ⏱️ Rendimiento
-
-- Tiempo total promedio de generación.
-- Tiempo por iteración.
-- Latencia total hasta aprobación.
-
----
-
-## 🔄 Consistencia
-
-- Diferencia estructural entre versiones consecutivas.
-- Ratio de cambios aplicados vs sugeridos.
-
----
-
-# 8️⃣ Brechas o Inconsistencias Detectadas
-
-## 🔁 Flujo Iterativo
-
-- Se menciona Agente Refinador, pero en la definición técnica solo existen Generador y Crítico.
-- Ambigüedad sobre si el Refinador es un agente separado o el mismo Generador con feedback.
-
----
-
-## 🧠 Gestión de Memoria
-
-- No se define estructura formal del estado.
-- No se define política de limpieza de sesiones.
-
----
-
-## ⚠️ Manejo de Errores
-
-- No se define comportamiento tras error intermedio.
-- No hay estrategia de retry.
-- No hay fallback si el crítico falla.
-
----
-
-## 👤 Supervisión Humana
-
-- No hay criterios formales de aprobación.
-- No está claro si el supervisor puede editar directamente.
-- No se define cómo se integra feedback manual al ciclo.
-
----
-
-## 💾 Persistencia
-
-- Solo se guarda versión final.
-- No se almacenan versiones intermedias.
-- No se define esquema de almacenamiento formal.
-
----
-
-# 9️⃣ Recomendaciones de Mejora
-
-## 🔴 Alta Prioridad
-
-1. Definir contrato estructural estricto (schema JSON validado).
-2. Unificar concepto Generador/Refinador.
-3. Definir modelo de estado explícito en LangGraph.
-4. Validar estructura antes de enviar al crítico.
-5. Registrar todas las versiones en persistencia mínima.
-6. Definir criterios formales de aprobación HITL.
-
----
-
-## 🟡 Media Prioridad
-
-1. Implementar retry simple ante fallos transitorios.
-2. Agregar métrica automática heurística de calidad.
-3. Separar memoria de sesión de memoria del grafo.
-4. Añadir trazabilidad estructurada (ID de versión).
-
----
-
-## 🟢 Baja Prioridad
-
-1. Añadir scoring automático comparativo entre versiones.
-2. Introducir feedback cuantitativo del supervisor.
-3. Preparar abstracción para futura integración con APIs externas.
-4. Diseñar interfaz visual mínima para seguimiento del ciclo.
-
----
-
-# ✅ Conclusión Arquitectónica
-
-El MVP está bien delimitado y es coherente como experimento académico multi‑agente.
-
-Los principales puntos críticos son:
-
-- Consistencia estructural del output.
-- Gobernanza del ciclo iterativo.
-- Robustez del manejo de estado en LangGraph.
-
-Con contratos de datos claros y reglas explícitas de decisión, el MVP es sólido como base experimental y extensible.
+El sistema está bien delimitado como experimento técnico arquitectónico y constituye una base sólida para futuras extensiones.
