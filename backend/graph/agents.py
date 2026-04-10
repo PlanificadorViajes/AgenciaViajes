@@ -73,13 +73,43 @@ async def search_flights(**kwargs):
 
 
 @tool
-async def search_accommodations(input_data: dict):
+async def search_accommodations(**kwargs):
     """
     Busca alojamientos utilizando la lógica determinista del dominio.
-    Recibe un diccionario con los parámetros del alojamiento y devuelve
-    una lista de opciones rankeadas.
+    Soporta múltiples formatos de entrada del agente y aplica fallback.
     """
-    return await search_accommodations_tool(input_data)
+    import json
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"[search_accommodations] kwargs recibidos: {json.dumps(kwargs, default=str)}")
+
+    # Normalización robusta (igual que vuelos)
+    if "input_data" in kwargs:
+        data = kwargs["input_data"]
+    elif len(kwargs) == 1 and isinstance(list(kwargs.values())[0], dict):
+        data = list(kwargs.values())[0]
+    elif not kwargs and _LAST_USER_REQUEST is not None:
+        # Fallback si el agente llama sin argumentos
+        data = _LAST_USER_REQUEST
+    else:
+        data = kwargs
+
+    # Convertimos dict → modelo de dominio (igual que vuelos)
+    from backend.models.house_models import HouseRequest
+    from datetime import datetime
+
+    house_request = HouseRequest(
+        destination_country=data["destination_country"],
+        destination_city=data.get("destination_city"),
+        departure_date=datetime.fromisoformat(data["departure_date"]),
+        return_date=datetime.fromisoformat(data["return_date"]),
+        passengers=data["passengers"],
+        max_budget=data["max_budget"],
+        selected_flight_price=data.get("selected_flight_price"),
+    )
+
+    return await search_accommodations_tool(house_request)
 
 
 @tool
@@ -131,7 +161,23 @@ def build_flight_agent():
 
 
 def build_house_agent():
-    return create_react_agent(llm, tools)
+    prompt = ChatPromptTemplate.from_messages([
+        (
+            "system",
+            "Eres un agente especializado en búsqueda de alojamientos. "
+            "Tu única acción permitida es usar la herramienta 'search_accommodations'. "
+            "NO puedes responder con texto libre. "
+            "NO puedes analizar. "
+            "Debes invocar la herramienta inmediatamente."
+        ),
+        ("placeholder", "{messages}")
+    ])
+    # Solo le damos acceso a la tool de alojamientos
+    return create_react_agent(
+        llm,
+        [search_accommodations],
+        prompt=prompt
+    )
 
 
 def build_finalize_agent():
