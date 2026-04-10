@@ -142,7 +142,29 @@ Esto permite re‑ejecutar agentes dinámicamente.
 
 # Comprobación de comunicación de agentes
 
-<img width="660" height="205" alt="image" src="https://github.com/user-attachments/assets/aa39ec56-f0a0-46de-9918-0e0b9d6b4313" />
+## Comuniación inical (usuario mete los datos necesarios)
+
+<img width="665" height="121" alt="image" src="https://github.com/user-attachments/assets/386cdfa9-4c57-4607-9ada-53a2ddb78505" />
+
+## Comunicación al elegir el vuelo:
+
+<img width="656" height="168" alt="image" src="https://github.com/user-attachments/assets/985d88ea-2545-4848-b773-3549a8c09616" />
+
+## Comunicación al elegir el vuelo:
+
+<img width="672" height="115" alt="image" src="https://github.com/user-attachments/assets/732d7f44-d6a6-4e8d-a70f-29598fdbc6ed" />
+
+## Comnicación tras la solucitud del HITL:
+
+<img width="673" height="444" alt="image" src="https://github.com/user-attachments/assets/afeffe40-1069-47e4-a86e-66a745134736" />
+
+(selecciona el agente necesario y vuelve a elegir el usuario)
+
+## Devolución final teniendo en cuenta lo solicitado del HITL:
+
+<img width="683" height="102" alt="image" src="https://github.com/user-attachments/assets/f32bbfff-7ae2-4471-83bb-3c9d3d6aadd0" />
+
+
 
 
 # 👤 Human‑in‑the‑Loop (HITL)
