@@ -7,7 +7,25 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-from backend.orchestrator.travel_orchestrator import orchestrator
+# Nuevo sistema basado en LangGraph
+from backend.graph.graph_builder import build_travel_graph
+from backend.graph.nodes import (
+    start_node,
+    flight_node,
+    house_node,
+    finalize_node,
+    review_node,
+    error_node,
+)
+
+travel_graph = build_travel_graph(
+    start_node=start_node,
+    flight_node=flight_node,
+    house_node=house_node,
+    finalize_node=finalize_node,
+    review_node=review_node,
+    error_node=error_node,
+)
 
 app = FastAPI(title="Travel Planner Backend")
 
@@ -30,49 +48,65 @@ def health():
 async def start_travel_plan(request: dict):
     """
     Step 1:
-    Returns top flight options.
+    Ejecuta el grafo LangGraph desde el nodo start.
     """
-    return await orchestrator.create_travel_plan(request)
+    result = await travel_graph.ainvoke({
+        "user_request": request
+    })
+    return result
 
 
 @app.post("/travel/select-flight")
 async def select_flight(payload: dict):
     """
     Step 2:
-    User selects a flight.
+    Actualiza estado y continúa grafo.
     """
-    return await orchestrator.continue_with_flight_selection(
-        user_request=payload["user_request"],
-        selected_flight_id=payload["selected_flight_id"],
-        flight_options=payload["flight_options"],
-    )
+    state = {
+        "user_request": payload["user_request"],
+        "selected_flight": next(
+            (f for f in payload["flight_options"]
+             if f["id"] == payload["selected_flight_id"]),
+            None
+        )
+    }
+
+    result = await travel_graph.ainvoke(state)
+    return result
 
 
 @app.post("/travel/select-house")
-def select_house(payload: dict):
+async def select_house(payload: dict):
     """
     Step 3:
-    User selects accommodation and final document is generated.
+    Ejecuta nodo finalize.
     """
-    return orchestrator.finalize_with_house_selection(
-        user_request=payload["user_request"],
-        selected_flight=payload["selected_flight"],
-        selected_house_id=payload["selected_house_id"],
-        house_options=payload["house_options"],
-        flight_alternatives=payload.get("flight_alternatives"),
-    )
+    state = {
+        "user_request": payload["user_request"],
+        "selected_flight": payload["selected_flight"],
+        "selected_house": next(
+            (h for h in payload["house_options"]
+             if h["id"] == payload["selected_house_id"]),
+            None
+        )
+    }
+
+    result = await travel_graph.ainvoke(state)
+    return result
 
 
 @app.post("/travel/review")
 async def review_plan(payload: dict):
     """
-    HITL Step:
-    type: "editorial" | "criteria"
-    comment: user feedback
-    context: original data (user_request, selected_flight, selected_house)
+    HITL Step integrado en grafo.
     """
-    return await orchestrator.review_plan(
-        review_type=payload["type"],
-        comment=payload["comment"],
-        context=payload["context"],
-    )
+    state = {
+        "user_request": payload["context"]["user_request"],
+        "selected_flight": payload["context"].get("selected_flight"),
+        "selected_house": payload["context"].get("selected_house"),
+        "review_type": payload["type"],
+        "review_comment": payload["comment"],
+    }
+
+    result = await travel_graph.ainvoke(state)
+    return result
