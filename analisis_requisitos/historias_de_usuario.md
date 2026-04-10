@@ -1,197 +1,200 @@
-# Historias de Usuario Refinadas – MVP Multi‑Agente
+# 📘 Historias de Usuario – Travel Planner MVP  
+## Sistema Multi‑Agente con Orquestación Centralizada y HITL
 
 ---
 
-## 🧱 Épica 1 – Orquestación del Flujo Iterativo
+# 🧭 Épica 1 – Planificación de Viaje
 
 ---
 
-### HU‑01 – Definición de Flujo Base en LangGraph
+## HU‑01 – Crear Solicitud de Viaje
 
-**Como** Arquitecto del sistema  
-**Quiero** definir un flujo simple en LangGraph con nodos  
-`Generador → Crítico → Decisión`  
-**Para** validar la dinámica iterativa del MVP.
+**Como** usuario viajero  
+**Quiero** introducir los datos básicos de mi viaje  
+**Para** obtener propuestas de vuelos acordes a mis preferencias.
 
-**Criterios de aceptación:**
-- El grafo contiene nodos explícitos.
-- Existe transición condicional basada en contador.
-- El flujo puede ejecutarse al menos una iteración completa.
+### Criterios de aceptación
 
----
-
-### HU‑02 – Límite Configurable de Iteraciones
-
-**Como** Orquestador LangGraph  
-**Quiero** limitar el número de iteraciones a un máximo configurable (N)  
-**Para** evitar loops infinitos y controlar costos.
-
-**Criterios de aceptación:**
-- N es configurable vía archivo o variable.
-- El ciclo se detiene automáticamente al alcanzar N.
-- El estado final pasa a `FINAL_CANDIDATE`.
+- El sistema solicita:
+  - Aeropuerto de origen
+  - País de destino
+  - Fechas
+  - Número de pasajeros
+  - Presupuesto máximo
+- Se valida que los campos obligatorios estén completos.
+- El sistema devuelve lista de vuelos.
+- Estado devuelto: `pending_flight_selection`.
 
 ---
 
-### HU‑03 – Reenvío Automático de Feedback
+## HU‑02 – Seleccionar Vuelo
 
-**Como** Orquestador LangGraph  
-**Quiero** reenviar automáticamente el feedback del crítico al generador  
-**Para** lograr refinamiento iterativo controlado.
+**Como** usuario viajero  
+**Quiero** elegir uno de los vuelos propuestos  
+**Para** continuar con la búsqueda de alojamiento.
 
-**Criterios de aceptación:**
-- El feedback se inyecta como contexto estructurado.
-- El contador de iteraciones se incrementa correctamente.
-- No se pierde historial previo.
+### Criterios de aceptación
 
----
+- El sistema calcula presupuesto restante.
+- Genera alojamientos compatibles.
+- Devuelve lista de alojamientos.
+- Estado devuelto: `pending_house_selection`.
 
-## 🤖 Épica 2 – Agentes Especializados
+### Escenario alternativo
 
----
-
-### HU‑04 – Generación Estructurada de Itinerario
-
-**Como** Agente Generador  
-**Quiero** producir un itinerario estructurado en JSON validado  
-**Para** que el agente crítico pueda evaluarlo automáticamente.
-
-**Criterios de aceptación:**
-- El output cumple un schema mínimo.
-- Contiene días, actividades y justificación.
-- Es parseable sin errores.
+- Si no existen alojamientos dentro del presupuesto:
+  - Estado devuelto: `no_accommodation_budget`.
+  - Se muestra mensaje claro.
+  - El usuario puede volver a elegir vuelo.
 
 ---
 
-### HU‑05 – Evaluación Estructurada del Itinerario
+## HU‑03 – Seleccionar Alojamiento
 
-**Como** Agente Crítico  
-**Quiero** devolver retroalimentación clara y accionable en formato estructurado  
-**Para** permitir refinamiento automático.
+**Como** usuario viajero  
+**Quiero** elegir un alojamiento  
+**Para** generar mi plan final de viaje.
 
-**Criterios de aceptación:**
-- El feedback incluye:
-  - Problemas detectados
-  - Recomendaciones concretas
-- El formato es consistente.
-- Puede ser reutilizado por el Generador sin transformación manual.
+### Criterios de aceptación
 
----
-
-## 👤 Épica 3 – Supervisión Humana (HITL)
-
----
-
-### HU‑06 – Revisión Humana Final
-
-**Como** Supervisor humano (HITL)  
-**Quiero** revisar el itinerario final antes de entregarlo  
-**Para** validar manualmente el resultado.
-
-**Criterios de aceptación:**
-- Se muestra la versión final.
-- Se permite aprobar o rechazar.
-- Se registra la decisión.
+- El sistema genera documento final en Markdown.
+- Se muestran detalles:
+  - Vuelo seleccionado
+  - Alojamiento seleccionado
+  - Alternativas
+  - Desglose presupuestario
+- Estado devuelto: `completed`.
 
 ---
 
-### HU‑07 – Finalización Manual del Ciclo
-
-**Como** Supervisor humano  
-**Quiero** poder forzar la finalización del ciclo iterativo  
-**Para** tener control manual del flujo.
-
-**Criterios de aceptación:**
-- Puede ejecutarse en cualquier iteración.
-- Detiene el grafo inmediatamente.
-- Marca versión actual como candidata final.
+# 🧠 Épica 2 – Refinamiento y Revisión (HITL)
 
 ---
 
-## 💾 Épica 4 – Estado, Memoria y Persistencia
+## HU‑04 – Revisar Redacción del Plan
+
+**Como** usuario  
+**Quiero** solicitar una mejora en la redacción del plan  
+**Para** obtener una versión más clara o ajustada.
+
+### Criterios de aceptación
+
+- El usuario introduce comentario.
+- El sistema regenera el documento.
+- Vuelo y alojamiento no cambian.
+- Estado devuelto: `revised`.
 
 ---
 
-### HU‑08 – Memoria de Sesión Activa
+## HU‑05 – Cambiar Criterios del Viaje
 
-**Como** Módulo de memoria  
-**Quiero** almacenar contexto del usuario y última versión  
-**Para** mantener continuidad durante la sesión.
+**Como** usuario  
+**Quiero** modificar características del alojamiento o vuelo  
+**Para** refinar el resultado sin reiniciar todo el proceso.
 
-**Criterios de aceptación:**
-- Se almacena input original.
-- Se almacena historial de versiones.
-- Se mantiene contador de iteraciones.
+### Criterios de aceptación
 
----
-
-### HU‑09 – Persistencia Final Básica
-
-**Como** Servicio de persistencia  
-**Quiero** guardar el resultado final en almacenamiento ligero  
-**Para** garantizar trazabilidad mínima.
-
-**Criterios de aceptación:**
-- Se guarda versión final aprobada.
-- Se incluye metadata básica (fecha, iteraciones).
-- Se confirma almacenamiento exitoso.
+- El comentario se envía al módulo LLM.
+- Se extraen restricciones estructuradas.
+- El sistema re‑ejecuta búsqueda correspondiente.
+- Devuelve nuevas opciones para confirmación explícita.
+- Estado devuelto:
+  - `pending_house_selection`
+  - `pending_flight_selection`
+  - o `error` si no hay coincidencias.
 
 ---
 
-## 📊 Épica 5 – Observabilidad y Robustez
+# 🧠 Épica 3 – Interpretación Semántica (LLM)
 
 ---
 
-### HU‑10 – Logging Básico del Sistema
+## HU‑06 – Interpretar Restricciones en Lenguaje Natural
 
-**Como** Sistema de logging  
-**Quiero** registrar entradas, salidas y número de iteraciones  
-**Para** facilitar debugging.
+**Como** usuario  
+**Quiero** escribir restricciones en lenguaje natural  
+**Para** no tener que usar filtros técnicos.
 
-**Criterios de aceptación:**
-- Cada ejecución tiene ID de sesión.
-- Se registran errores.
-- Se registran iteraciones realizadas.
+### Criterios de aceptación
 
----
-
-### HU‑11 – Manejo Básico de Errores
-
-**Como** Orquestador LangGraph  
-**Quiero** capturar errores de ejecución de agentes  
-**Para** devolver mensajes controlados y mantener resiliencia básica.
-
-**Criterios de aceptación:**
-- Excepciones capturadas por nodo.
-- Error registrado.
-- Estado pasa a `FAILED`.
+- Soporte en español e inglés.
+- El sistema reconoce:
+  - bathrooms
+  - bedrooms
+  - beds
+  - max_guests
+- Devuelve JSON válido.
+- Se aplica filtrado dinámico.
+- No se realizan selecciones automáticas sin confirmación.
 
 ---
 
-## ⚙️ Épica 6 – Configuración y Modularidad
+# ⚠️ Épica 4 – Manejo de Presupuesto
 
 ---
 
-### HU‑12 – Configuración Externa de Prompts
+## HU‑07 – Gestionar Presupuesto Insuficiente
 
-**Como** Configuración de prompts  
-**Quiero** definir prompts en archivos configurables  
-**Para** permitir ajustes sin modificar código.
+**Como** usuario  
+**Quiero** recibir aviso si el presupuesto restante no permite alojamientos  
+**Para** poder elegir otro vuelo o ajustar mi presupuesto.
 
-**Criterios de aceptación:**
-- Prompts separados del código.
-- Cargados dinámicamente al iniciar.
-- Modificables sin recompilar.
+### Criterios de aceptación
+
+- El sistema detecta ausencia de alojamientos.
+- Devuelve estado `no_accommodation_budget`.
+- El frontend muestra mensaje claro.
+- El usuario vuelve a pantalla de vuelos.
+- No se muestra pantalla vacía.
 
 ---
 
-### HU‑13 – Aplicación Modular Única
+# 🏗️ Épica 5 – Arquitectura y Estado
 
-**Como** Arquitecto del sistema  
-**Quiero** mantener todos los componentes en una única aplicación modular  
-**Para** simplificar despliegue del MVP.
+---
 
-**Criterios de aceptación:**
-- Separación por módulos internos.
-- No requiere microservicios.
-- Puede desplegarse como única instancia.
+## HU‑08 – Flujo Dirigido por Estado
+
+**Como** sistema  
+**Quiero** que cada fase devuelva un estado explícito  
+**Para** que el frontend renderice correctamente cada paso.
+
+### Criterios de aceptación
+
+Estados soportados:
+
+- `pending_flight_selection`
+- `pending_house_selection`
+- `completed`
+- `revised`
+- `no_accommodation_budget`
+- `error`
+
+---
+
+# 🚫 Funcionalidades NO Incluidas en el MVP
+
+Estas historias NO forman parte del sistema actual:
+
+- Iteraciones automáticas Generador ↔ Crítico.
+- Límite configurable de iteraciones.
+- Persistencia en base de datos.
+- Versionado de itinerarios.
+- Gestión multiusuario.
+- Supervisor humano separado.
+- Memoria persistente de sesión.
+
+---
+
+# ✅ Conclusión
+
+Las historias de usuario actuales reflejan fielmente:
+
+- Flujo secuencial controlado.
+- Arquitectura multi‑agente modular.
+- HITL real.
+- Interpretación semántica mediante LLM.
+- Manejo explícito de estados.
+- Gestión robusta de presupuesto insuficiente.
+
+Documento completamente alineado con la implementación real.

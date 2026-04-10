@@ -1,285 +1,201 @@
-
-# Casos de Uso Refinados  
-## MVP – Planificador Inteligente de Viajes (Sistema Multi‑Agente con LangGraph)
-
-> Versión refactorizada con:
-> - Separación clara entre casos de negocio y procesos internos
-> - Eliminación de redundancias
-> - Mejor alineación con arquitectura basada en estados
-> - Coherencia con flujo Generador → Crítico → Decisión → HITL
+# 📚 Casos de Uso  
+## Travel Planner MVP – Sistema Multi‑Agente con Orquestación Centralizada
 
 ---
 
-# 📌 CASOS DE USO DE NEGOCIO
+# 📌 Introducción
+
+Este documento describe los casos de uso reales del sistema actualmente implementado.
+
+El sistema no utiliza LangGraph ni ciclo iterativo automático Generador–Crítico.  
+Se basa en una orquestación centralizada mediante `TravelOrchestrator` y un flujo dirigido por estados (`status`).
 
 ---
 
-## CU‑01 – Crear Solicitud de Itinerario
+# ✅ CASOS DE USO DE NEGOCIO
+
+---
+
+## CU‑01 – Crear Solicitud de Viaje
 
 **Actor principal:** Usuario viajero  
-**Descripción:** El usuario proporciona la información necesaria para generar un itinerario personalizado.
+**Descripción:** El usuario introduce los datos necesarios para iniciar la planificación.
 
 ### Precondiciones
-- Sistema disponible.
-- Usuario con acceso activo a la aplicación.
+- Sistema operativo y accesible.
+- Usuario con acceso al frontend.
 
 ### Flujo Principal
-1. El usuario ingresa:
-   - Destino
+1. El usuario introduce:
+   - Aeropuerto de origen
+   - País de destino
+   - Ciudad (opcional)
    - Fechas
-   - Presupuesto (opcional en MVP)
-   - Intereses
-   - Restricciones
-2. El sistema valida campos mínimos obligatorios.
-3. Se crea una sesión activa con estado `CREATED`.
-4. Se inicia el flujo de generación automática.
-
-### Flujos Alternativos
-- **A1 – Datos incompletos:**  
-  El sistema solicita completar la información requerida.
+   - Número de pasajeros
+   - Presupuesto máximo
+2. El frontend envía solicitud al backend.
+3. El sistema genera vuelos.
+4. Estado devuelto: `pending_flight_selection`.
 
 ### Postcondiciones
-- Sesión inicializada.
-- Estado del proceso: `CREATED`.
+- Lista de vuelos disponibles para selección.
 
 ---
 
-## CU‑02 – Ejecutar Generación Inicial
+## CU‑02 – Seleccionar Vuelo
 
-**Actor principal:** Sistema (Orquestador LangGraph)  
-**Actores secundarios:** Agente Generador  
-
-**Descripción:** El sistema genera la primera versión estructurada del itinerario.
+**Actor principal:** Usuario viajero  
+**Actor secundario:** Sistema (FlightPlanner + FlightAnalyst)
 
 ### Precondiciones
-- Existe sesión en estado `CREATED`.
+- Estado actual: `pending_flight_selection`.
 
 ### Flujo Principal
-1. El orquestador construye el contexto desde memoria.
-2. Envía solicitud al Agente Generador.
-3. El Generador produce itinerario estructurado (JSON válido).
-4. El sistema valida estructura.
-5. Se almacena como `version = 1`.
-6. Estado pasa a `GENERATED`.
+1. El usuario selecciona un vuelo.
+2. El sistema:
+   - Calcula presupuesto restante.
+   - Genera alojamientos sintéticos.
+   - Aplica scoring.
+3. Estado devuelto:
+   - `pending_house_selection`
+   - O `no_accommodation_budget` si no hay opciones.
 
 ### Flujos Alternativos
-- **A1 – Error de generación:**  
-  - Se registra en log.  
-  - Estado pasa a `FAILED`.
 
-- **A2 – Estructura inválida:**  
-  - Se solicita regeneración automática (si permitido).  
-  - Si falla nuevamente → `FAILED`.
+**A1 – Presupuesto insuficiente**
+- El sistema devuelve estado `no_accommodation_budget`.
+- El frontend muestra mensaje.
+- Se vuelve a selección de vuelos.
 
 ### Postcondiciones
-- Versión inicial almacenada.
-- Lista para evaluación.
+- Lista de alojamientos disponibles o mensaje de presupuesto insuficiente.
 
 ---
 
-## CU‑03 – Evaluar Itinerario
+## CU‑03 – Seleccionar Alojamiento
 
-**Actor principal:** Sistema (Orquestador)  
-**Actor secundario:** Agente Crítico  
-
-**Descripción:** El sistema evalúa calidad, coherencia y cumplimiento de restricciones.
+**Actor principal:** Usuario viajero  
 
 ### Precondiciones
-- Existe versión generada.
-- Estado `GENERATED` o `ITERATING`.
+- Estado actual: `pending_house_selection`.
 
 ### Flujo Principal
-1. El orquestador envía versión actual al Crítico.
-2. El Crítico devuelve feedback estructurado.
-3. Se valida formato del feedback.
-4. Se almacena en memoria.
-5. Estado pasa a `EVALUATED`.
-
-### Flujos Alternativos
-- **A1 – Error en evaluación:**  
-  Estado → `FAILED`.
-
-- **A2 – Feedback inválido:**  
-  Reintento configurable o fallo controlado.
+1. El usuario selecciona alojamiento.
+2. El sistema genera plan final en Markdown.
+3. Estado devuelto: `completed`.
 
 ### Postcondiciones
-- Feedback disponible.
-- Lista para decisión de iteración.
+- Documento final generado.
 
 ---
 
-## CU‑04 – Ejecutar Ciclo de Refinamiento Automático
+## CU‑04 – Revisar Redacción (HITL Editorial)
 
-**Actor principal:** Sistema (Orquestador)  
-**Actores secundarios:** Generador, Crítico  
-
-**Descripción:** Ejecuta iteraciones automáticas hasta alcanzar criterio de parada.
+**Actor principal:** Usuario viajero  
 
 ### Precondiciones
-- Estado `EVALUATED`.
-- Iteraciones < N máximo.
+- Estado actual: `completed`.
 
 ### Flujo Principal
-1. El sistema evalúa condición de parada:
-   - ¿Iteraciones ≥ N?
-   - ¿Supervisor forzó finalización?
-2. Si no se cumple condición de salida:
-   - Envía feedback al Generador.
-   - Genera nueva versión.
-   - Incrementa contador.
-   - Evalúa nuevamente con Crítico.
-3. Repite hasta alcanzar condición de salida.
-4. Estado pasa a `FINAL_CANDIDATE`.
-
-### Flujos Alternativos
-- **A1 – Se alcanza máximo N:**  
-  Se detiene automáticamente.
-
-- **A2 – Error intermedio:**  
-  Estado → `FAILED`.
+1. Usuario introduce comentario editorial.
+2. Backend regenera el documento final.
+3. Estado devuelto: `revised`.
 
 ### Postcondiciones
-- Versión candidata final disponible.
+- Nuevo documento final generado.
+- Vuelo y alojamiento no cambian.
 
 ---
 
-## CU‑05 – Revisión Humana (HITL)
+## CU‑05 – Cambiar Criterios (HITL Semántico)
 
-**Actor principal:** Supervisor humano  
-
-**Descripción:** Validación manual antes de entrega final.
+**Actor principal:** Usuario viajero  
+**Actor secundario:** LLM Constraint Extractor  
 
 ### Precondiciones
-- Estado `FINAL_CANDIDATE`.
+- Estado actual: `completed`.
 
 ### Flujo Principal
-1. El sistema presenta:
-   - Última versión.
-   - Historial resumido de iteraciones.
-2. El supervisor:
-   - Aprueba → Estado `APPROVED`
-   - Rechaza → Estado `REJECTED`
-
-### Flujos Alternativos
-- **A1 – Rechazo:**  
-  Se reactiva ciclo de refinamiento manual (contador puede reiniciarse o continuar según configuración).
+1. Usuario introduce comentario (ej: “quiero 1 baño”).
+2. El sistema:
+   - Envía comentario al LLM.
+   - Extrae restricciones estructuradas.
+   - Reejecuta búsqueda.
+3. Devuelve:
+   - `pending_house_selection` si hay resultados.
+   - `error` si no hay coincidencias.
 
 ### Postcondiciones
-- Itinerario aprobado o reenviado a iteración.
+- Nuevas opciones disponibles para confirmación explícita.
 
 ---
 
-## CU‑06 – Forzar Finalización Manual
-
-**Actor principal:** Supervisor humano  
-
-**Descripción:** Permite detener iteraciones activas y aceptar versión actual.
-
-### Precondiciones
-- Estado `ITERATING`.
-
-### Flujo Principal
-1. Supervisor solicita finalización.
-2. Orquestador detiene ciclo.
-3. Estado → `FINAL_CANDIDATE`.
-
-### Postcondiciones
-- Versión actual marcada como candidata final.
+# 🧠 PROCESOS INTERNOS RELEVANTES
 
 ---
 
-## CU‑07 – Persistir Itinerario Final
+## PI‑01 – Extracción Semántica de Restricciones
 
-**Actor principal:** Sistema  
-**Actor secundario:** Módulo de Persistencia  
+El módulo LLM:
 
-**Descripción:** Guarda el resultado aprobado.
+- Interpreta texto libre.
+- Devuelve JSON estructurado.
+- Soporta español e inglés.
+- Permite filtrado dinámico.
 
-### Precondiciones
-- Estado `APPROVED`.
-
-### Flujo Principal
-1. Se construye objeto final con:
-   - Datos de usuario
-   - Versión final
-   - Número de iteraciones
-2. Se almacena en archivo o base ligera.
-3. Estado → `PERSISTED`.
-
-### Flujos Alternativos
-- **A1 – Error de guardado:**  
-  Se registra en log.  
-  Estado → `FAILED_PERSISTENCE`.
-
-### Postcondiciones
-- Itinerario almacenado correctamente.
+No existe iteración automática.
 
 ---
 
-# 📌 PROCESOS INTERNOS DEL SISTEMA
+## PI‑02 – Gestión de Estados
 
-*(No visibles como casos de negocio, pero formalizados para arquitectura)*
+Estados reales del sistema:
 
----
+- `pending_flight_selection`
+- `pending_house_selection`
+- `completed`
+- `revised`
+- `no_accommodation_budget`
+- `error`
 
-## PI‑01 – Gestión de Estado del Flujo
-
-Estados posibles:
-
-- `CREATED`
-- `GENERATED`
-- `EVALUATED`
-- `ITERATING`
-- `FINAL_CANDIDATE`
-- `APPROVED`
-- `REJECTED`
-- `PERSISTED`
-- `FAILED`
+El frontend reacciona explícitamente a cada uno.
 
 ---
 
-## PI‑02 – Gestión de Memoria de Sesión
+## PI‑03 – Manejo de Presupuesto Insuficiente
 
-- Almacena:
-  - Input original
-  - Versiones sucesivas
-  - Feedback estructurado
-  - Contador de iteraciones
-- Eliminación automática tras finalización o timeout.
+Si no existen alojamientos dentro del presupuesto restante:
 
----
-
-## PI‑03 – Manejo Básico de Errores
-
-- Captura de excepciones por nodo.
-- Registro en logging.
-- Transición a estado `FAILED`.
-- Mensaje controlado al usuario o supervisor.
+1. Backend devuelve `no_accommodation_budget`.
+2. Frontend muestra mensaje.
+3. Se vuelve a selección de vuelos.
+4. No hay pantalla en blanco.
 
 ---
 
-# ✅ Resultado del Rediseño
+# 🚫 Funcionalidades NO Implementadas
 
-Con esta versión:
+El sistema actual NO incluye:
 
-- Se eliminan redundancias (límite de iteraciones integrado).
-- Se separan claramente:
-  - Casos de negocio
-  - Procesos técnicos internos
-- Se introduce modelo explícito de estados.
-- Se mejora alineación con arquitectura LangGraph.
-- Se reduce ambigüedad en responsabilidades.
+- Ciclo automático Generador ↔ Crítico.
+- Iteraciones controladas por contador N.
+- Supervisor formal separado.
+- Persistencia de sesiones.
+- Versionado de itinerarios.
+- Gestión de memoria persistente.
+- Estados como `ITERATING`, `APPROVED`, `FINAL_CANDIDATE`.
 
 ---
 
-# 🏁 Conclusión
+# ✅ Conclusión
 
-Este conjunto de casos de uso es:
+Los casos de uso reflejan fielmente el sistema implementado:
 
-- Más coherente arquitectónicamente
-- Más mantenible
-- Más escalable
-- Mejor alineado con sistemas multi‑agente iterativos
+- Flujo secuencial controlado.
+- Selección explícita del usuario.
+- Integración semántica mediante LLM.
+- HITL real.
+- Manejo robusto de estados.
+- Arquitectura modular multi‑agente sin sobre‑ingeniería.
 
-Apto para implementación directa en LangGraph con control de estados formal.
-```
+Este documento está alineado con la implementación actual del código.
