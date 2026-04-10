@@ -18,6 +18,10 @@ async def flight_node(state):
 
     user_request = state["user_request"]
 
+    # Registramos el último request para fallback de la tool
+    from backend.graph.agents import set_last_user_request
+    set_last_user_request(user_request)
+
     result = await agent.ainvoke({
         "messages": [
             HumanMessage(

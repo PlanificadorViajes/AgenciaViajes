@@ -18,6 +18,13 @@ from backend.graph.tools import (
     generate_travel_plan_tool,
 )
 
+# Contexto temporal para fallback si el agente no pasa argumentos
+_LAST_USER_REQUEST = None
+
+def set_last_user_request(data: dict):
+    global _LAST_USER_REQUEST
+    _LAST_USER_REQUEST = data
+
 
 # -----------------------------
 # REGISTRO DE TOOLS PARA LLM
@@ -46,8 +53,10 @@ async def search_flights(**kwargs):
     if "input_data" in kwargs:
         data = kwargs["input_data"]
     elif len(kwargs) == 1 and isinstance(list(kwargs.values())[0], dict):
-        # Caso: {'input': {...}} o similar
         data = list(kwargs.values())[0]
+    elif not kwargs and _LAST_USER_REQUEST is not None:
+        # Fallback: el agente llamó la tool sin argumentos
+        data = _LAST_USER_REQUEST
     else:
         data = kwargs
 
