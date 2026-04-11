@@ -95,9 +95,7 @@ async def house_node(state):
     houses = await search_accommodations_tool(house_request)
 
     # 🔎 DEBUG: Ver exactamente qué devuelve el planner
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"[house_node] Houses returned: {houses}")
+    logger.info(f"[house_node] Houses returned: {len(houses)} opciones")
 
     return {
         "house_options": houses,

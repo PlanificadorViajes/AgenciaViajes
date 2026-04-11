@@ -410,7 +410,8 @@ export default function App() {
             <div className="review-actions">
               <button onClick={() => handleReview("approve")}>✅ Aprobar</button>
               <button onClick={() => handleReview("editorial")}>📝 Ajustar redacción</button>
-              <button onClick={() => handleReview("criteria")}>🔁 Cambiar criterios / opciones</button>
+              <button onClick={() => handleReview("house_criteria")}>🏠 Cambiar alojamiento</button>
+              <button onClick={() => handleReview("flight_criteria")}>✈️ Recalcular vuelos</button>
             </div>
           </div>
         </section>

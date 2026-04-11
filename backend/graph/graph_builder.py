@@ -42,10 +42,15 @@ def build_travel_graph(
         review_type = state.get("review_type")
         if review_type == "editorial":
             return "finalize"
-        elif review_type == "criteria":
-            # Reinicia selección para relanzar agentes
+        if review_type == "house_criteria":
+            state.pop("selected_house", None)
+            state.pop("house_options", None)
+            return "house"
+        if review_type in {"criteria", "flight_criteria"}:
             state.pop("selected_house", None)
             state.pop("selected_flight", None)
+            state.pop("house_options", None)
+            state.pop("flight_options", None)
             return "flight"
         return END
 
@@ -54,6 +59,7 @@ def build_travel_graph(
         review_router,
         {
             "finalize": "finalize",
+            "house": "house",
             "flight": "flight",
             END: END,
         },
