@@ -121,25 +121,36 @@ async def finalize_node(state):
     house_data = state["selected_house"]
     user_request = state["user_request"]
 
-    flight_obj = SimpleNamespace(
-        id=flight_data.get("id"),
-        price=flight_data.get("price"),
-        airline=flight_data.get("airline", "Unknown Airline"),
-        origin=user_request.get("origin_airport"),
-        destination=user_request.get("destination_country"),
-        departure_date=user_request.get("departure_date"),
-        return_date=user_request.get("return_date"),
-        departure_time=flight_data.get("departure_time", "N/A"),
-        arrival_time=flight_data.get("arrival_time", "N/A")
-    )
+    flight_obj = SimpleNamespace(**flight_data)
+    house_obj = SimpleNamespace(**house_data)
 
-    house_obj = SimpleNamespace(
-        id=house_data.get("id"),
-        price_per_night=house_data.get("price_per_night"),
-        total_price=house_data.get("total_price"),
-        name=house_data.get("name", "Selected Accommodation"),
-        location=house_data.get("location", user_request.get("destination_country"))
-    )
+    # Normalizamos todos los campos que usa Documentalist
+    flight_obj.origin = getattr(flight_obj, "origin", user_request.get("origin_airport"))
+    flight_obj.destination = getattr(flight_obj, "destination", user_request.get("destination_country"))
+    flight_obj.departure_date = getattr(flight_obj, "departure_date", user_request.get("departure_date"))
+    flight_obj.arrival_date = getattr(flight_obj, "arrival_date", user_request.get("return_date"))
+    flight_obj.departure_time = getattr(flight_obj, "departure_time", "N/A")
+    flight_obj.arrival_time = getattr(flight_obj, "arrival_time", "N/A")
+    flight_obj.duration = getattr(flight_obj, "duration", "N/A")
+    flight_obj.stops = getattr(flight_obj, "stops", 0)
+    flight_obj.score = getattr(flight_obj, "score", 0)
+    flight_obj.source = getattr(flight_obj, "source", "unknown")
+    flight_obj.booking_url = getattr(flight_obj, "booking_url", "https://example.com/flight")
+
+    house_obj.name = getattr(house_obj, "name", "Selected Accommodation")
+    house_obj.type = getattr(house_obj, "type", "Apartment")
+    house_obj.location = getattr(house_obj, "location", house_data.get("city") or user_request.get("destination_country"))
+    house_obj.city = getattr(house_obj, "city", user_request.get("destination_country"))
+    house_obj.rating = getattr(house_obj, "rating", 0)
+    house_obj.reviews_count = getattr(house_obj, "reviews_count", 0)
+    house_obj.bedrooms = getattr(house_obj, "bedrooms", 1)
+    house_obj.beds = getattr(house_obj, "beds", 1)
+    house_obj.bathrooms = getattr(house_obj, "bathrooms", 1)
+    house_obj.max_guests = getattr(house_obj, "max_guests", user_request.get("passengers", 1))
+    house_obj.amenities = getattr(house_obj, "amenities", [])
+    house_obj.score = getattr(house_obj, "score", 0)
+    house_obj.source = getattr(house_obj, "source", "unknown")
+    house_obj.booking_url = getattr(house_obj, "booking_url", "https://example.com/accommodation")
 
     payload = {
         "user_request": state["user_request"],
