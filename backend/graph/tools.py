@@ -28,8 +28,13 @@ documentalist = DocumentalistAgent()
 async def search_flights_tool(input_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Tool: Buscar vuelos según request estructurado.
+    Admite dict o FlightRequest.
     """
-    flights = await flight_planner.search_flights(input_data)
+    req = input_data
+    if hasattr(input_data, "dict"):
+        req = input_data.dict()
+
+    flights = await flight_planner.search_flights(req)
     ranked = flight_analyst.analyze_and_rank(flights, max_results=5)
     return [f.dict() for f in ranked]
 

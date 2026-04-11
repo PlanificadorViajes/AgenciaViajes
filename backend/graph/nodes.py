@@ -8,41 +8,42 @@ async def start_node(state):
 
 async def flight_node(state):
     """
-    Nodo agentic real usando create_react_agent.
-    Enviamos formato 'messages' como espera LangGraph.
+    Nodo determinista temporal para vuelos.
+    Ejecuta la tool estructurada en lugar del agente ReAct
+    para devolver opciones listas para el frontend.
     """
-    from backend.graph.agents import build_flight_agent
-    from langchain_core.messages import HumanMessage
-
-    agent = build_flight_agent()
+    from backend.graph.agents import set_last_user_request
+    from backend.graph.tools import search_flights_tool
+    from backend.models.flight_models import FlightRequest
+    from datetime import date
+    import logging
 
     user_request = state["user_request"]
-
-    # Registramos el último request para fallback de la tool
-    from backend.graph.agents import set_last_user_request
     set_last_user_request(user_request)
 
-    result = await agent.ainvoke({
-        "messages": [
-            HumanMessage(
-                content=f"Busca vuelos con estos datos: {user_request}"
-            )
-        ]
-    })
-
-    # El agente ReAct devuelve estructura tipo:
-    # {"messages": [...]} donde el último mensaje contiene el output
-    messages = result.get("messages", [])
-    if not messages:
+    try:
+        flight_request = FlightRequest(
+            origin_airport=user_request["origin_airport"],
+            destination_country=user_request["destination_country"],
+            departure_date=date.fromisoformat(user_request["departure_date"]),
+            return_date=date.fromisoformat(user_request["return_date"]),
+            passengers=user_request["passengers"],
+            max_budget=user_request["max_budget"],
+        )
+    except Exception as exc:
         return {
             "status": "error",
-            "error_message": "Flight agent returned no messages"
+            "error_message": f"Invalid flight request payload: {exc}",
         }
 
-    final_message = messages[-1]
+    flights = await search_flights_tool(flight_request.dict())
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"[flight_node] Flights returned: {len(flights)}")
+
     return {
-        "flight_options": final_message.content,
-        "status": "pending_flight_selection"
+        "flight_options": flights,
+        "status": "pending_flight_selection",
     }
 
 

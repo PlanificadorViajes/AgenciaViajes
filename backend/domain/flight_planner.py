@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 from backend.models.flight_models import FlightRequest, FlightOffer
 from backend.tools.web_scraper import scraper
 import logging
@@ -16,11 +16,14 @@ class FlightPlannerAgent:
         self.name = "FlightPlanner"
         self.scraper = scraper
     
-    async def search_flights(self, request: FlightRequest) -> List[FlightOffer]:
+    async def search_flights(self, request: Union[FlightRequest, dict]) -> List[FlightOffer]:
         """
         Search for flights across multiple sources.
         Returns empty list if no flights found.
         """
+        if isinstance(request, dict):
+            request = FlightRequest(**request)
+
         logger.info(f"[{self.name}] Starting flight search for {request.origin_airport} -> {request.destination_country}")
         
         try:
