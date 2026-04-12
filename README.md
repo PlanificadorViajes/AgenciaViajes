@@ -32,6 +32,7 @@ El objetivo del proyecto es demostrar:
   - Grafo (LangGraph StateGraph)
   - Nodos
   - Dominio
+  - Tools
   - Cliente LLM
 
 ---
@@ -92,33 +93,131 @@ El backend es stateless: el estado vive únicamente durante la ejecución del gr
 
 # 🧠 Agentes del Sistema
 
-## ✈️ FlightPlanner + FlightAnalyst
-- Generación de vuelos sintéticos
-- Ranking con scoring ponderado:
-  - Precio (35%)
-  - Escalas (25%)
-  - Duración (20%)
-  - Presupuesto (20%)
+Aunque la ejecución está orquestada por nodos del grafo, conceptualmente el sistema sigue un modelo multi‑agente donde cada fase encapsula una responsabilidad clara.
 
-## 🏠 HousePlanner + HouseAnalyst
-- Generación de alojamientos sintéticos
-- Scoring multi‑criterio:
-  - Precio (30%)
-  - Rating (25%)
-  - Reviews (15%)
-  - Amenities (15%)
-  - Presupuesto (15%)
+---
 
-## 📝 Documentalist
-Genera el plan final en Markdown estructurado.
+## ✈️ FlightPlannerAgent
+
+Responsabilidad:
+- Generar propuestas de vuelos (mock en este MVP).
+- Construir opciones estructuradas compatibles con el dominio.
+
+Características:
+- No realiza llamadas a APIs reales.
+- Produce datos normalizados.
+- Prepara la base para evaluación posterior.
+
+---
+
+## 📊 FlightAnalystAgent
+
+Responsabilidad:
+- Evaluar y rankear vuelos mediante scoring ponderado.
+
+Criterios utilizados:
+- Precio (35%)
+- Escalas (25%)
+- Duración (20%)
+- Alineación con presupuesto (20%)
+
+Características:
+- Normalización relativa.
+- Desglose transparente por criterio.
+- Resultado explicable y reproducible.
+
+---
+
+## 🏠 HousePlannerAgent
+
+Responsabilidad:
+- Generar alojamientos compatibles con el presupuesto restante.
+- Aplicar restricciones semánticas si existen (HITL).
+
+Características:
+- Usa información del vuelo seleccionado.
+- Puede re‑ejecutarse dinámicamente tras revisión.
+
+---
+
+## 📈 HouseAnalystAgent
+
+Responsabilidad:
+- Evaluar alojamientos mediante scoring multi‑criterio.
+
+Criterios utilizados:
+- Precio (30%)
+- Rating (25%)
+- Reviews (15%)
+- Amenities (15%)
+- Alineación con presupuesto (15%)
+
+Características:
+- Transparencia total del cálculo.
+- Ranking determinista.
+- Explicabilidad priorizada.
+
+---
+
+## 📝 DocumentalistAgent
+
+Responsabilidad:
+- Generar el plan final estructurado en Markdown.
+- Integrar vuelo, alojamiento y contexto del usuario.
+
+Características:
+- Salida coherente y estructurada.
+- Puede regenerarse tras revisión editorial.
+- No altera decisiones seleccionadas.
+
+---
 
 ## 🧠 Constraint Extractor (LLM)
-Interpreta lenguaje natural y devuelve JSON estructurado para:
 
+Responsabilidad:
+- Interpretar lenguaje natural del usuario.
+- Extraer restricciones estructuradas en JSON.
+
+Reconoce:
 - bathrooms
 - bedrooms
 - beds
 - max_guests
+
+Características:
+- Soporte en español e inglés.
+- Devuelve estructura limpia para re‑ejecución del grafo.
+- No toma decisiones finales automáticamente.
+
+---
+
+# 🛠 Tools Utilizadas
+
+Las herramientas encapsulan lógica ejecutable reutilizable y separan el grafo del dominio.
+
+## 🔎 search_flights_tool
+- Genera vuelos sintéticos.
+- Devuelve lista estructurada compatible con el dominio.
+- Usada por el nodo `flight`.
+
+## 🏠 search_accommodations_tool
+- Genera alojamientos sintéticos.
+- Considera presupuesto restante tras selección de vuelo.
+- Usada por el nodo `house`.
+
+## 📝 generate_travel_plan_tool
+- Construye el documento final en Markdown.
+- Integra información del usuario, vuelo y alojamiento.
+- Usada por el nodo `finalize`.
+
+## 🌐 web_scraper (estructura preparada)
+- Actualmente no activo en producción.
+- Preparado para futura integración con fuentes externas.
+
+Las tools permiten:
+- Separación de responsabilidades.
+- Sustitución futura por integraciones reales.
+- Testeo independiente del grafo.
 
 ---
 
@@ -181,6 +280,7 @@ Características:
 - Ponderación explícita
 - Desglose transparente
 - Explicabilidad priorizada
+- Ranking determinista
 
 ---
 
@@ -244,13 +344,14 @@ frontend/
 - Interpretación semántica con LLM
 - Manejo robusto de errores
 - Backend stateless
+- Separación clara entre grafo, dominio y tools
 
 ---
 
 # 🚫 Limitaciones
 
 - No APIs reales
-- No scraping real
+- No scraping real activo
 - No base de datos
 - No autenticación
 - No preparado para producción
@@ -263,6 +364,7 @@ frontend/
 - Estado bien definido
 - Control humano en decisiones
 - Modularidad
+- Explicabilidad
 - Simplicidad sobre sobre‑ingeniería
 
 ---

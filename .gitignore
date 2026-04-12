@@ -1,4 +1,27 @@
-venv/
+# Python
 __pycache__/
 *.pyc
+.venv/
+venv/
 .env
+.env.*
+
+# Logs
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+
+# Node
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+
+# VSCode
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
