@@ -1,137 +1,196 @@
-# Flight & Accommodation Search System - Implementation Plan
+# AgenciaViajes - Plan Real Basado en el Código Actual
 
-## Project Transformation
-From: Travel itinerary generator
-To: Flight + Accommodation search system with web scraping
+Este documento describe el proyecto según la implementación real existente en el repositorio.
 
 ---
 
-## Architecture Overview
+# ✅ Arquitectura Actual Consolidada
 
 ```
-Frontend (React + TypeScript)
-    ↓
-FastAPI Backend
-    ↓
-Orchestrator
-    ↓
-Agents:
-  - FlightPlanner (scraping)
-  - FlightAnalyst (top 5)
-  - HousePlanner (scraping)
-  - HouseAnalyst (top 5)
-  - Documentalist (formatting)
-    ↓
-WebScraper Tool (Playwright/httpx)
+Frontend (React + Vite)
+        ↓
+FastAPI (backend/api/app.py)
+        ↓
+Graph Builder
+        ↓
+Nodes (Agente / Tool / Control)
+        ↓
+Domain Layer
+        ↓
+Tools (Web Scraper)
 ```
+
+No existe ya separación entre “MVP antiguo” y “nuevo sistema”.  
+El proyecto actual está consolidado en una única arquitectura basada en grafo.
 
 ---
 
-## Backend Structure
+# ✅ Backend Structure Real
 
 ```
 backend/
-├── main.py
 ├── api/
-│   └── routes.py
-├── orchestrator/
-│   └── flow.py
-├── agents/
+│   └── app.py
+├── graph/
+│   ├── graph_builder.py
+│   ├── nodes.py
+│   ├── state.py
+│   ├── agents.py
+│   └── tools.py
+├── domain/
 │   ├── flight_planner.py
 │   ├── flight_analyst.py
 │   ├── house_planner.py
 │   ├── house_analyst.py
 │   └── documentalist.py
-├── tools/
-│   └── web_scraper.py
 ├── models/
 │   ├── flight_models.py
 │   └── house_models.py
-├── persistence/
-└── requirements.txt
+├── tools/
+│   └── web_scraper.py
+├── llm/
+│   └── client.py
 ```
 
 ---
 
-## Frontend Structure
+# ✅ Funcionamiento Actual
 
-```
-frontend/
-├── pages/
-│   ├── index.tsx
-│   └── results.tsx
-├── components/
-│   ├── FlightForm.tsx
-│   ├── FlightList.tsx
-│   ├── HouseList.tsx
-│   ├── OfferCard.tsx
-│   └── ApprovalPanel.tsx
-├── services/
-│   └── api.ts
-└── styles/
-```
+## Flujo simplificado
+
+1. Usuario envía request
+2. FastAPI construye state inicial
+3. Graph Builder crea flujo
+4. Nodo agente ejecuta LLM
+5. Si el LLM decide → se invoca tool
+6. Tool ejecuta lógica dominio / scraping
+7. State se actualiza
+8. Se produce resultado final
 
 ---
 
-## Implementation Steps
+# ✅ Agentes Implementados
 
-### Phase 1: Backend Models & Tools
-- [ ] Create flight models (FlightRequest, FlightOffer)
-- [ ] Create house models (HouseRequest, HouseOffer)
-- [ ] Implement WebScraper tool
+En dominio existen:
 
-### Phase 2: Backend Agents
-- [ ] FlightPlannerAgent (scraping)
-- [ ] FlightAnalystAgent (top 5 selection)
-- [ ] HousePlannerAgent (scraping)
-- [ ] HouseAnalystAgent (top 5 selection)
-- [ ] DocumentalistAgent (formatting)
+- FlightPlanner
+- FlightAnalyst
+- HousePlanner
+- HouseAnalyst
+- Documentalist
 
-### Phase 3: Backend Orchestrator & API
-- [ ] Implement orchestrator flow
-- [ ] Create API routes
-- [ ] Update main.py
+El sistema utiliza patrón:
 
-### Phase 4: Frontend
-- [ ] FlightForm component (structured form)
-- [ ] OfferCard component
-- [ ] FlightList component
-- [ ] HouseList component
-- [ ] ApprovalPanel component
-- [ ] API service
-- [ ] Main page integration
-
-### Phase 5: Integration & Testing
-- [ ] End-to-end flow test
-- [ ] Error handling
-- [ ] HITL implementation
-- [ ] "No offers" flow validation
+Planner → Analyst → Selección → Documentalist
 
 ---
 
-## Critical Rules
+# ✅ Web Scraping
 
-1. **No flights found → Show exact message + stop**
-   - Message: "No hemos encontrado ofertas con tus requisitos"
-   - Do NOT execute house search
+Ubicación:
+```
+backend/tools/web_scraper.py
+```
 
-2. **HITL points:**
-   - After showing top 5 flights
-   - After showing top 5 houses
+Responsabilidad:
+- Buscar vuelos
+- Buscar alojamientos
+- Devolver resultados estructurados
 
-3. **Structured input (no free text):**
-   - origin_airport
-   - destination_country
-   - departure_date
-   - return_date
-   - passengers
-   - max_budget
+Actualmente no incluye:
+- Retry robusto
+- Circuit breaker
+- Rate limiting avanzado
 
-4. **Real scraping targets:**
-   - Flights: Skyscanner, Google Flights, Kayak, Kiwi, Expedia
-   - Houses: Airbnb, Booking
+---
 
-5. **Maintain existing:**
-   - LLM client infrastructure
-   - API keys configuration
-   - Environment variables
+# ❌ Elementos No Implementados
+
+## Persistencia
+No existe:
+- PostgreSQL
+- ORM
+- Versionado de planes
+- Historial de ejecución
+
+## Infraestructura
+No existe:
+- Dockerfile
+- docker-compose
+- Configuración despliegue
+- CI/CD
+
+## Observabilidad
+No existe:
+- Logging estructurado por ejecución
+- Métricas
+- Trazabilidad LLM detallada
+
+---
+
+# 🎯 Plan Realista de Evolución
+
+## Fase 1 – Robustez Scraping
+- Timeouts explícitos
+- Manejo de excepciones
+- Retry pattern
+- Logging detallado
+
+## Fase 2 – Persistencia
+- SQLAlchemy
+- Tablas:
+  - users
+  - executions
+  - selected_flight
+  - selected_house
+  - final_document
+
+## Fase 3 – API Extendida
+- Endpoint selección vuelo
+- Endpoint selección alojamiento
+- Recuperación ejecución previa
+
+## Fase 4 – Infraestructura
+- Docker backend
+- Docker frontend
+- docker-compose
+- Variables entorno seguras
+
+---
+
+# ✅ Estado Actual del Proyecto
+
+El sistema actual es:
+
+- Arquitectura moderna basada en grafo
+- Separación limpia dominio / infraestructura
+- Tool calling bien implementado
+- Modelo extensible
+- Preparado para escalar
+
+No es ya un “proyecto de transformación”, sino un sistema consolidado que requiere:
+
+- Infraestructura
+- Persistencia
+- Observabilidad
+
+para convertirse en production-ready.
+
+---
+
+# ✅ Conclusión
+
+El proyecto actual ya implementa correctamente:
+
+- Orquestación basada en grafo
+- Multi-agente especializado
+- Tool execution desacoplada
+- Dominio limpio
+
+La evolución futura debe centrarse en:
+
+- Persistencia
+- Infraestructura
+- Robustez operacional
+
+La base arquitectónica está correctamente construida y es extensible.
