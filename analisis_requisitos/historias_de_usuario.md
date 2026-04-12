@@ -1,5 +1,5 @@
 # 📘 Historias de Usuario – Travel Planner MVP  
-## Sistema Multi‑Agente con Orquestación Centralizada y HITL
+## Sistema Multi‑Agente Orquestado con LangGraph y HITL
 
 ---
 
@@ -18,11 +18,13 @@
 - El sistema solicita:
   - Aeropuerto de origen
   - País de destino
+  - Ciudad opcional
   - Fechas
   - Número de pasajeros
   - Presupuesto máximo
-- Se valida que los campos obligatorios estén completos.
-- El sistema devuelve lista de vuelos.
+- El frontend invoca `/travel/start`.
+- El backend ejecuta el grafo desde `start`.
+- Se generan y rankean vuelos.
 - Estado devuelto: `pending_flight_selection`.
 
 ---
@@ -35,15 +37,18 @@
 
 ### Criterios de aceptación
 
-- El sistema calcula presupuesto restante.
-- Genera alojamientos compatibles.
-- Devuelve lista de alojamientos.
-- Estado devuelto: `pending_house_selection`.
+- El frontend invoca `/travel/select-flight`.
+- El grafo continúa hacia nodo `house`.
+- Se calcula presupuesto restante.
+- Se generan alojamientos compatibles.
+- Estado devuelto:
+  - `pending_house_selection`
+  - o `no_accommodation_budget`.
 
 ### Escenario alternativo
 
 - Si no existen alojamientos dentro del presupuesto:
-  - Estado devuelto: `no_accommodation_budget`.
+  - Estado: `no_accommodation_budget`.
   - Se muestra mensaje claro.
   - El usuario puede volver a elegir vuelo.
 
@@ -57,12 +62,9 @@
 
 ### Criterios de aceptación
 
-- El sistema genera documento final en Markdown.
-- Se muestran detalles:
-  - Vuelo seleccionado
-  - Alojamiento seleccionado
-  - Alternativas
-  - Desglose presupuestario
+- El frontend invoca `/travel/select-house`.
+- El grafo ejecuta nodo `finalize`.
+- Se genera documento final en Markdown.
 - Estado devuelto: `completed`.
 
 ---
@@ -79,10 +81,12 @@
 
 ### Criterios de aceptación
 
-- El usuario introduce comentario.
-- El sistema regenera el documento.
+- El usuario envía comentario.
+- Se invoca `/travel/review`.
+- El nodo `review` enruta a `finalize`.
+- Se regenera el documento.
 - Vuelo y alojamiento no cambian.
-- Estado devuelto: `revised`.
+- Estado devuelto: `completed`.
 
 ---
 
@@ -96,12 +100,15 @@
 
 - El comentario se envía al módulo LLM.
 - Se extraen restricciones estructuradas.
-- El sistema re‑ejecuta búsqueda correspondiente.
-- Devuelve nuevas opciones para confirmación explícita.
-- Estado devuelto:
-  - `pending_house_selection`
-  - `pending_flight_selection`
-  - o `error` si no hay coincidencias.
+- El grafo enruta según `review_type`.
+- Se re‑ejecuta nodo `flight` o `house`.
+- Se devuelven nuevas opciones.
+- No se realizan selecciones automáticas.
+
+Estados posibles tras ejecución:
+- `pending_house_selection`
+- `pending_flight_selection`
+- `error`
 
 ---
 
@@ -118,14 +125,14 @@
 ### Criterios de aceptación
 
 - Soporte en español e inglés.
-- El sistema reconoce:
+- Reconoce:
   - bathrooms
   - bedrooms
   - beds
   - max_guests
 - Devuelve JSON válido.
 - Se aplica filtrado dinámico.
-- No se realizan selecciones automáticas sin confirmación.
+- No se altera selección sin confirmación humana.
 
 ---
 
@@ -141,10 +148,10 @@
 
 ### Criterios de aceptación
 
-- El sistema detecta ausencia de alojamientos.
+- El nodo `house` detecta ausencia de opciones.
 - Devuelve estado `no_accommodation_budget`.
 - El frontend muestra mensaje claro.
-- El usuario vuelve a pantalla de vuelos.
+- El flujo vuelve a selección de vuelos.
 - No se muestra pantalla vacía.
 
 ---
@@ -159,42 +166,35 @@
 **Quiero** que cada fase devuelva un estado explícito  
 **Para** que el frontend renderice correctamente cada paso.
 
-### Criterios de aceptación
-
-Estados soportados:
+### Estados soportados
 
 - `pending_flight_selection`
 - `pending_house_selection`
 - `completed`
-- `revised`
 - `no_accommodation_budget`
 - `error`
 
+El estado se gestiona mediante `TravelState` dentro de LangGraph.
+
 ---
 
-# 🚫 Funcionalidades NO Incluidas en el MVP
+# 🚫 Funcionalidades No Incluidas en el MVP
 
-Estas historias NO forman parte del sistema actual:
-
-- Iteraciones automáticas Generador ↔ Crítico.
-- Límite configurable de iteraciones.
-- Persistencia en base de datos.
-- Versionado de itinerarios.
-- Gestión multiusuario.
-- Supervisor humano separado.
-- Memoria persistente de sesión.
+- Persistencia en base de datos
+- Versionado de itinerarios
+- Gestión multiusuario
+- Iteraciones automáticas Generador ↔ Crítico
+- Infraestructura distribuida
+- Supervisor externo formal
 
 ---
 
 # ✅ Conclusión
 
-Las historias de usuario actuales reflejan fielmente:
+Las historias de usuario están alineadas con la implementación actual:
 
-- Flujo secuencial controlado.
-- Arquitectura multi‑agente modular.
-- HITL real.
-- Interpretación semántica mediante LLM.
-- Manejo explícito de estados.
-- Gestión robusta de presupuesto insuficiente.
-
-Documento completamente alineado con la implementación real.
+- Orquestación declarativa con LangGraph
+- Flujo controlado por estado
+- HITL real
+- Integración LLM para interpretación semántica
+- Selección explícita del usuario

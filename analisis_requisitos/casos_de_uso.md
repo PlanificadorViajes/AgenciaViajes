@@ -1,14 +1,16 @@
 # 📚 Casos de Uso  
-## Travel Planner MVP – Sistema Multi‑Agente con Orquestación Centralizada
+## Travel Planner MVP – Sistema Multi‑Agente Orquestado con LangGraph
 
 ---
 
 # 📌 Introducción
 
-Este documento describe los casos de uso reales del sistema actualmente implementado.
+Este documento describe los casos de uso alineados con la implementación actual del sistema.
 
-El sistema no utiliza LangGraph ni ciclo iterativo automático Generador–Crítico.  
-Se basa en una orquestación centralizada mediante `TravelOrchestrator` y un flujo dirigido por estados (`status`).
+El sistema está orquestado mediante **LangGraph (StateGraph)** y utiliza un modelo de estado explícito (`TravelState`) que gobierna el flujo completo.
+
+No existe ya un `TravelOrchestrator` manual.  
+La lógica de transición entre fases se declara en el grafo.
 
 ---
 
@@ -19,13 +21,9 @@ Se basa en una orquestación centralizada mediante `TravelOrchestrator` y un flu
 ## CU‑01 – Crear Solicitud de Viaje
 
 **Actor principal:** Usuario viajero  
-**Descripción:** El usuario introduce los datos necesarios para iniciar la planificación.
-
-### Precondiciones
-- Sistema operativo y accesible.
-- Usuario con acceso al frontend.
 
 ### Flujo Principal
+
 1. El usuario introduce:
    - Aeropuerto de origen
    - País de destino
@@ -33,42 +31,39 @@ Se basa en una orquestación centralizada mediante `TravelOrchestrator` y un flu
    - Fechas
    - Número de pasajeros
    - Presupuesto máximo
-2. El frontend envía solicitud al backend.
-3. El sistema genera vuelos.
-4. Estado devuelto: `pending_flight_selection`.
+2. El frontend envía la solicitud al endpoint `/travel/start`.
+3. El backend ejecuta el grafo desde `start`.
+4. El nodo `flight` genera y rankea vuelos.
+5. Estado devuelto: `pending_flight_selection`.
 
-### Postcondiciones
-- Lista de vuelos disponibles para selección.
+### Postcondición
+Lista de vuelos disponible para selección explícita.
 
 ---
 
 ## CU‑02 – Seleccionar Vuelo
 
 **Actor principal:** Usuario viajero  
-**Actor secundario:** Sistema (FlightPlanner + FlightAnalyst)
 
-### Precondiciones
-- Estado actual: `pending_flight_selection`.
+### Precondición
+Estado actual: `pending_flight_selection`.
 
 ### Flujo Principal
+
 1. El usuario selecciona un vuelo.
-2. El sistema:
-   - Calcula presupuesto restante.
-   - Genera alojamientos sintéticos.
-   - Aplica scoring.
-3. Estado devuelto:
+2. Se invoca `/travel/select-flight`.
+3. El grafo continúa desde `flight` → `house`.
+4. Se calcula presupuesto restante.
+5. Se generan y rankean alojamientos.
+6. Estado devuelto:
    - `pending_house_selection`
-   - O `no_accommodation_budget` si no hay opciones.
+   - o `no_accommodation_budget`.
 
-### Flujos Alternativos
+### Flujo Alternativo – Presupuesto Insuficiente
 
-**A1 – Presupuesto insuficiente**
-- El sistema devuelve estado `no_accommodation_budget`.
-- El frontend muestra mensaje.
-- Se vuelve a selección de vuelos.
-
-### Postcondiciones
-- Lista de alojamientos disponibles o mensaje de presupuesto insuficiente.
+- El nodo `house` no encuentra opciones válidas.
+- Estado: `no_accommodation_budget`.
+- El frontend redirige a selección de vuelos.
 
 ---
 
@@ -76,16 +71,16 @@ Se basa en una orquestación centralizada mediante `TravelOrchestrator` y un flu
 
 **Actor principal:** Usuario viajero  
 
-### Precondiciones
-- Estado actual: `pending_house_selection`.
+### Precondición
+Estado actual: `pending_house_selection`.
 
 ### Flujo Principal
-1. El usuario selecciona alojamiento.
-2. El sistema genera plan final en Markdown.
-3. Estado devuelto: `completed`.
 
-### Postcondiciones
-- Documento final generado.
+1. Usuario selecciona alojamiento.
+2. Se invoca `/travel/select-house`.
+3. El grafo ejecuta nodo `finalize`.
+4. Se genera plan final en Markdown.
+5. Estado devuelto: `completed`.
 
 ---
 
@@ -93,109 +88,100 @@ Se basa en una orquestación centralizada mediante `TravelOrchestrator` y un flu
 
 **Actor principal:** Usuario viajero  
 
-### Precondiciones
-- Estado actual: `completed`.
+### Precondición
+Estado actual: `completed`.
 
 ### Flujo Principal
-1. Usuario introduce comentario editorial.
-2. Backend regenera el documento final.
-3. Estado devuelto: `revised`.
 
-### Postcondiciones
-- Nuevo documento final generado.
-- Vuelo y alojamiento no cambian.
+1. Usuario envía comentario editorial.
+2. Se invoca `/travel/review`.
+3. El nodo `review` enruta a `finalize`.
+4. Se regenera el documento.
+5. Estado devuelto: `completed` (plan actualizado).
 
 ---
 
 ## CU‑05 – Cambiar Criterios (HITL Semántico)
 
 **Actor principal:** Usuario viajero  
-**Actor secundario:** LLM Constraint Extractor  
 
-### Precondiciones
-- Estado actual: `completed`.
+### Precondición
+Estado actual: `completed`.
 
 ### Flujo Principal
-1. Usuario introduce comentario (ej: “quiero 1 baño”).
-2. El sistema:
-   - Envía comentario al LLM.
-   - Extrae restricciones estructuradas.
-   - Reejecuta búsqueda.
-3. Devuelve:
-   - `pending_house_selection` si hay resultados.
-   - `error` si no hay coincidencias.
 
-### Postcondiciones
-- Nuevas opciones disponibles para confirmación explícita.
+1. Usuario introduce comentario en lenguaje natural.
+2. Se invoca `/travel/review`.
+3. El grafo enruta según `review_type`:
+   - `house_criteria` → nodo `house`
+   - `flight_criteria` / `criteria` → nodo `flight`
+4. El LLM extrae restricciones estructuradas.
+5. Se re‑ejecuta la fase correspondiente.
+6. Estado devuelto:
+   - `pending_house_selection`
+   - `pending_flight_selection`
+   - o `error`.
+
+No se realizan selecciones automáticas.
 
 ---
 
-# 🧠 PROCESOS INTERNOS RELEVANTES
+# 🧠 Procesos Internos Relevantes
 
----
+## PI‑01 – Orquestación Declarativa
 
-## PI‑01 – Extracción Semántica de Restricciones
+El flujo del sistema está definido mediante:
 
-El módulo LLM:
+```python
+builder.add_edge(...)
+builder.add_conditional_edges(...)
+```
 
-- Interpreta texto libre.
-- Devuelve JSON estructurado.
-- Soporta español e inglés.
-- Permite filtrado dinámico.
-
-No existe iteración automática.
+No existe lógica imperativa secuencial externa.
 
 ---
 
 ## PI‑02 – Gestión de Estados
 
-Estados reales del sistema:
+Estados soportados:
 
 - `pending_flight_selection`
 - `pending_house_selection`
 - `completed`
-- `revised`
 - `no_accommodation_budget`
 - `error`
 
-El frontend reacciona explícitamente a cada uno.
+El frontend renderiza en función del `status`.
 
 ---
 
-## PI‑03 – Manejo de Presupuesto Insuficiente
+## PI‑03 – Extracción Semántica
 
-Si no existen alojamientos dentro del presupuesto restante:
+El módulo LLM:
 
-1. Backend devuelve `no_accommodation_budget`.
-2. Frontend muestra mensaje.
-3. Se vuelve a selección de vuelos.
-4. No hay pantalla en blanco.
+- Interpreta texto libre
+- Devuelve JSON estructurado
+- Permite filtrado dinámico
+- Soporta español e inglés
 
 ---
 
-# 🚫 Funcionalidades NO Implementadas
+# 🚫 Funcionalidades No Implementadas
 
-El sistema actual NO incluye:
-
-- Ciclo automático Generador ↔ Crítico.
-- Iteraciones controladas por contador N.
-- Supervisor formal separado.
-- Persistencia de sesiones.
-- Versionado de itinerarios.
-- Gestión de memoria persistente.
-- Estados como `ITERATING`, `APPROVED`, `FINAL_CANDIDATE`.
+- Persistencia de sesiones
+- Versionado de planes
+- Iteraciones automáticas Generador ↔ Crítico
+- Infraestructura distribuida
+- Gestión multiusuario
 
 ---
 
 # ✅ Conclusión
 
-Los casos de uso reflejan fielmente el sistema implementado:
+Los casos de uso reflejan fielmente el sistema actual:
 
-- Flujo secuencial controlado.
-- Selección explícita del usuario.
-- Integración semántica mediante LLM.
-- HITL real.
-- Manejo robusto de estados.
-- Arquitectura modular multi‑agente sin sobre‑ingeniería.
-
-Este documento está alineado con la implementación actual del código.
+- Orquestación mediante LangGraph
+- Flujo dirigido por estado
+- Selección explícita del usuario
+- HITL real
+- Integración controlada de LLM
