@@ -1,22 +1,20 @@
 # 🌍 Travel Planner MVP  
-## Sistema Multi‑Agente de Planificación de Viajes con Human‑in‑the‑Loop (HITL)
+## Sistema Multi‑Agente con Orquestación basada en LangGraph y HITL
 
 ---
 
 ## 📌 Descripción General
 
-**Travel Planner MVP** es un sistema de planificación de viajes basado en una arquitectura multi‑agente con orquestación centralizada, motor de scoring explicable y capacidad de refinamiento iterativo mediante Human‑in‑the‑Loop (HITL).
+**Travel Planner MVP** es un sistema de planificación de viajes basado en una arquitectura multi‑agente orquestada mediante **LangGraph (StateGraph)**, con motor de scoring explicable y refinamiento iterativo controlado por Human‑in‑the‑Loop (HITL).
 
-El proyecto demuestra cómo diseñar un sistema inteligente que:
+El objetivo del proyecto es demostrar:
 
-- ✅ Orquesta múltiples agentes especializados
-- ✅ Implementa scoring ponderado multi‑criterio
-- ✅ Permite refinamiento semántico dinámico mediante LLM
-- ✅ Gestiona estados explícitos entre frontend y backend
-- ✅ Mantiene separación clara de responsabilidades
-- ✅ Maneja errores de presupuesto de forma controlada
-
-El objetivo es arquitectónico y técnico: demostrar diseño modular, explicabilidad y control iterativo.
+- ✅ Orquestación declarativa mediante grafo de estados
+- ✅ Separación clara entre API, grafo, nodos y dominio
+- ✅ Scoring multi‑criterio explicable
+- ✅ Integración controlada de LLM para extracción semántica
+- ✅ Control explícito del flujo mediante estados
+- ✅ Intervención humana real en decisiones críticas
 
 ---
 
@@ -25,161 +23,135 @@ El objetivo es arquitectónico y técnico: demostrar diseño modular, explicabil
 ## Estilo Arquitectónico
 
 - Arquitectura modular orientada a agentes
-- Orquestación centralizada
+- Orquestación declarativa con **LangGraph**
 - Backend stateless
-- Flujo dirigido por estado (`status`)
+- Flujo dirigido por estado (`TravelState`)
 - Separación clara entre:
-  - Frontend (React)
-  - API Backend (FastAPI)
-  - Orquestador
-  - Agentes especializados
-  - Modelos de dominio
+  - Frontend (React + Vite)
+  - API (FastAPI)
+  - Grafo (LangGraph StateGraph)
+  - Nodos
+  - Dominio
+  - Cliente LLM
 
 ---
 
-# 🔁 Flujo General del Sistema
+# 🔁 Orquestación con LangGraph
+
+El sistema utiliza:
+
+```python
+StateGraph(TravelState)
+```
+
+## Nodos del grafo
+
+- `start`
+- `flight`
+- `house`
+- `finalize`
+- `review`
+- `error`
+
+## Flujo principal
 
 ```
-Usuario
-   ↓
-Frontend (React)
-   ↓
-Backend API (FastAPI)
-   ↓
-TravelOrchestrator
-   ↓
-[FlightPlanner] → [FlightAnalyst]
-                          ↓
-                Selección de vuelo
-                          ↓
-            [HousePlanner] → [HouseAnalyst]
-                          ↓
-             Selección de alojamiento
-                          ↓
-                  [Documentalist]
-                          ↓
-                Plan final en Markdown
-                          ↓
-               Human‑in‑the‑Loop (HITL)
+start → flight → house → finalize → END
 ```
+
+## Flujo HITL condicional
+
+El nodo `review` enruta dinámicamente según:
+
+- `editorial` → finalize
+- `house_criteria` → house
+- `flight_criteria` / `criteria` → flight
+
+La decisión se toma mediante `add_conditional_edges()`.
+
+---
+
+# 🧠 TravelState
+
+El estado compartido del grafo contiene:
+
+- user_request
+- flight_options
+- selected_flight
+- house_options
+- selected_house
+- travel_plan
+- status
+- review_type
+- review_comment
+- error_message
+
+El backend es stateless: el estado vive únicamente durante la ejecución del grafo.
 
 ---
 
 # 🧠 Agentes del Sistema
 
-## ✈️ FlightPlannerAgent
-Genera vuelos sintéticos (mock data en este MVP).
+## ✈️ FlightPlanner + FlightAnalyst
+- Generación de vuelos sintéticos
+- Ranking con scoring ponderado:
+  - Precio (35%)
+  - Escalas (25%)
+  - Duración (20%)
+  - Presupuesto (20%)
 
-## 📊 FlightAnalystAgent
-Rankea vuelos usando scoring ponderado:
+## 🏠 HousePlanner + HouseAnalyst
+- Generación de alojamientos sintéticos
+- Scoring multi‑criterio:
+  - Precio (30%)
+  - Rating (25%)
+  - Reviews (15%)
+  - Amenities (15%)
+  - Presupuesto (15%)
 
-- Precio (35%)
-- Escalas (25%)
-- Duración (20%)
-- Alineación con presupuesto (20%)
-
-Incluye desglose transparente por criterio.
-
----
-
-## 🏠 HousePlannerAgent
-Genera alojamientos sintéticos en función del presupuesto restante.
-
-⚠️ En este MVP no hay scraping real ni APIs externas.
-
----
-
-## 📈 HouseAnalystAgent
-Evalúa alojamientos con scoring multi‑criterio:
-
-- Precio (30%)
-- Rating (25%)
-- Reviews (15%)
-- Amenities (15%)
-- Alineación con presupuesto (15%)
-
-Incluye desglose detallado por criterio.
-
----
-
-## 📝 DocumentalistAgent
-Genera el documento final del viaje en formato Markdown estructurado.
-
-Permite regeneración tras revisión editorial.
-
----
+## 📝 Documentalist
+Genera el plan final en Markdown estructurado.
 
 ## 🧠 Constraint Extractor (LLM)
+Interpreta lenguaje natural y devuelve JSON estructurado para:
 
-El sistema incluye un módulo semántico basado en LLM que:
-
-- Interpreta comentarios del usuario
-- Extrae restricciones estructuradas
-- Soporta español e inglés
-- Devuelve JSON limpio
-
-Ejemplo:
-
-```
-"quiero 1 baño y 2 dormitorios"
-```
-
-Se transforma en:
-
-```
-{
-  "entity": "house",
-  "constraints": {
-    "bathrooms": 1,
-    "bedrooms": 2
-  }
-}
-```
-
-Esto permite re‑ejecutar agentes dinámicamente.
+- bathrooms
+- bedrooms
+- beds
+- max_guests
 
 ---
-
-# Comprobación de comunicación de agentes
-
-<img width="660" height="205" alt="image" src="https://github.com/user-attachments/assets/aa39ec56-f0a0-46de-9918-0e0b9d6b4313" />
-
 
 # 👤 Human‑in‑the‑Loop (HITL)
 
-El sistema soporta dos modos de revisión:
+El sistema soporta:
 
-## 📝 Revisar redacción
-Regenera el documento final sin modificar vuelo ni alojamiento.
+## 📝 Revisión editorial
+- Regenera únicamente el documento final.
+- No altera vuelo ni alojamiento.
 
-## 🔁 Cambiar criterios
-- Interpreta semánticamente el comentario
-- Reejecuta búsqueda de vuelos o alojamientos
-- Devuelve nuevas opciones
-- Requiere confirmación explícita del usuario
+## 🔁 Cambio de criterios
+- Extrae restricciones con LLM.
+- Re‑ejecuta nodos del grafo.
+- Devuelve nuevas opciones.
+- Requiere confirmación explícita.
 
-No hay selección automática oculta.
+No existe selección automática sin intervención del usuario.
 
 ---
 
 # 🚨 Manejo de Presupuesto Insuficiente
 
-Si el vuelo seleccionado deja presupuesto insuficiente para alojamiento:
-
-El backend devuelve:
+Si no existen alojamientos dentro del presupuesto restante:
 
 ```
 status: "no_accommodation_budget"
 ```
 
 El frontend:
-
 - Muestra mensaje claro
 - Vuelve a selección de vuelos
-- Evita pantalla en blanco
 - Mantiene coherencia de estado
-
-Este diseño prioriza claridad y control del usuario.
 
 ---
 
@@ -188,17 +160,16 @@ Este diseño prioriza claridad y control del usuario.
 ## Backend
 - Python 3.10+
 - FastAPI
+- LangGraph
 - Pydantic
-- Orquestación asíncrona
-- Arquitectura modular por agentes
 - Cliente LLM (Azure compatible)
+- Arquitectura async
 
 ## Frontend
 - React
 - Vite
 - Fetch API
-- Flujo basado en estados (`step`)
-- Renderizado condicional según `status`
+- Renderizado basado en `status`
 
 ---
 
@@ -208,31 +179,23 @@ Características:
 
 - Normalización relativa
 - Ponderación explícita
-- Transparencia total (value / max)
-- Visualización gráfica
-- Resaltado automático de mejor opción
-
-Diseñado para explicabilidad.
+- Desglose transparente
+- Explicabilidad priorizada
 
 ---
 
-# 🚀 Ejecución del Proyecto
+# 🚀 Ejecución
 
 ## Backend
-
-Desde la raíz:
 
 ```bash
 uvicorn backend.api.app:app --reload
 ```
 
 Disponible en:
-
 ```
 http://127.0.0.1:8000
 ```
-
----
 
 ## Frontend
 
@@ -243,7 +206,6 @@ npm run dev
 ```
 
 Disponible en:
-
 ```
 http://localhost:5173
 ```
@@ -255,9 +217,9 @@ http://localhost:5173
 ```
 backend/
   api/
-  agents/
+  graph/
+  domain/
   models/
-  orchestrator/
   llm/
   tools/
 
@@ -267,72 +229,44 @@ frontend/
 
 ---
 
-# ✅ Capacidades Actuales del MVP
+# Comprobación de comunicación de agentes
 
-- Flujo completo de planificación
-- Arquitectura multi‑agente
-- Scoring explicable
-- Refinamiento semántico con LLM
+<img width="660" height="205" alt="image" src="https://github.com/user-attachments/assets/aa39ec56-f0a0-46de-9918-0e0b9d6b4313" />
+
+---
+
+# ✅ Capacidades del MVP
+
+- Orquestación declarativa con LangGraph
+- Flujo multi‑agente controlado por estado
 - HITL real
-- Manejo de presupuesto insuficiente
-- Estado dirigido por backend
-- Confirmación explícita tras cambios
+- Scoring explicable
+- Interpretación semántica con LLM
+- Manejo robusto de errores
+- Backend stateless
 
 ---
 
-# ❌ Alcance Deliberadamente Limitado
+# 🚫 Limitaciones
 
-Este MVP:
-
-- No integra APIs reales
-- No realiza scraping real
-- No incluye base de datos
-- No incluye autenticación
-- No está preparado para producción
-
-El foco es arquitectónico.
-
----
-
-# 📈 Posibles Evoluciones Futuras
-
-- Fallback automático inteligente entre vuelos
-- Persistencia con PostgreSQL
-- Cache distribuida
-- Versionado de planes
-- Explainability avanzada
-- Integración con APIs reales
-- Dockerización
+- No APIs reales
+- No scraping real
+- No base de datos
+- No autenticación
+- No preparado para producción
 
 ---
 
 # 🎯 Principios de Diseño
 
-- Modularidad clara
 - Orquestación explícita
-- Estados bien definidos
-- Explicabilidad
+- Estado bien definido
 - Control humano en decisiones
-- Simplicidad antes que sobre‑ingeniería
-
----
-
-# 🏁 Conclusión
-
-Travel Planner MVP no es solo un generador de texto.
-
-Es un sistema multi‑agente con:
-
-- Orquestación centralizada
-- Scoring ponderado
-- Refinamiento semántico
-- Human‑in‑the‑Loop real
-- Manejo robusto de estados
-
-Un MVP técnico sólido, coherente y extensible.
+- Modularidad
+- Simplicidad sobre sobre‑ingeniería
 
 ---
 
 ## 👨‍💻 Autor
 
-Proyecto desarrollado como demostración de arquitectura multi‑agente con orquestación centralizada, motor de decisión explicable y revisión humana iterativa.
+Proyecto desarrollado como demostración arquitectónica de un sistema multi‑agente orquestado mediante LangGraph con refinamiento iterativo controlado.

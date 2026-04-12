@@ -103,13 +103,45 @@ async def review_plan(payload: dict):
     """
     HITL Step integrado en grafo.
     """
+
+    review_type = payload["type"]
+    logging.info(f"[REVIEW] review_type recibido: {review_type}")
+    context = payload["context"]
+    user_request = context["user_request"]
+    selected_flight = context.get("selected_flight")
+    selected_house = context.get("selected_house")
+
+    # ✅ Caso HITL: cambiar SOLO alojamiento
+    if review_type == "house_criteria":
+        from backend.graph.nodes import house_node
+        logging.info(f"[REVIEW] house_criteria recibido. selected_flight={bool(selected_flight)}")
+
+        state = {
+            "user_request": user_request,
+            "selected_flight": selected_flight,
+            "review_type": review_type,
+            "review_comment": payload["comment"],
+        }
+
+        # ⚠️ Forzamos llamada directa a house_node SIEMPRE
+        return await house_node(state)
+
+    # ✅ Caso HITL: recalcular vuelos (reinicio completo)
+    if review_type in {"criteria", "flight_criteria"}:
+        state = {
+            "user_request": user_request,
+            "review_type": review_type,
+            "review_comment": payload["comment"],
+        }
+        return await travel_graph.ainvoke(state)
+
+    # ✅ Caso editorial u otros → flujo normal
     state = {
-        "user_request": payload["context"]["user_request"],
-        "selected_flight": payload["context"].get("selected_flight"),
-        "selected_house": payload["context"].get("selected_house"),
-        "review_type": payload["type"],
+        "user_request": user_request,
+        "selected_flight": selected_flight,
+        "selected_house": selected_house,
+        "review_type": review_type,
         "review_comment": payload["comment"],
     }
 
-    result = await travel_graph.ainvoke(state)
-    return result
+    return await travel_graph.ainvoke(state)

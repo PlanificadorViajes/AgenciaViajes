@@ -1,6 +1,51 @@
 # Eliminadas dependencias deterministas directas.
 # Toda ejecución real pasa por tools invocadas por agentes.
 
+import logging
+import re
+
+logger = logging.getLogger(__name__)
+
+
+def _filter_houses_by_review_comment(houses, comment):
+    if not comment:
+        return houses
+
+    beds_pattern = re.search(r"(\d+)\s*(?:camas?|beds?)", comment, re.IGNORECASE)
+    bedrooms_pattern = re.search(r"(\d+)\s*(?:dormitorios?|habitaciones?|rooms?)", comment, re.IGNORECASE)
+    bathrooms_pattern = re.search(r"(\d+)\s*(?:bañ?os?|bathrooms?)", comment, re.IGNORECASE)
+
+    min_beds = int(beds_pattern.group(1)) if beds_pattern else None
+    min_bedrooms = int(bedrooms_pattern.group(1)) if bedrooms_pattern else None
+    min_bathrooms = int(bathrooms_pattern.group(1)) if bathrooms_pattern else None
+
+    if not any([min_beds, min_bedrooms, min_bathrooms]):
+        return houses
+
+    filtered = []
+    for house in houses:
+        beds = house.get("beds") or 0
+        bedrooms = house.get("bedrooms") or 0
+        bathrooms = house.get("bathrooms") or 0
+
+        if min_beds is not None and beds < min_beds:
+            continue
+        if min_bedrooms is not None and bedrooms < min_bedrooms:
+            continue
+        if min_bathrooms is not None and bathrooms < min_bathrooms:
+            continue
+
+        filtered.append(house)
+
+    if filtered:
+        logger.info(
+            f"[house_node] Filtrado HITL -> beds>={min_beds}, bedrooms>={min_bedrooms}, bathrooms>={min_bathrooms} -> {len(filtered)} opciones"
+        )
+        return filtered
+
+    logger.warning("[house_node] Filtro HITL dejó 0 opciones; devolviendo lista original")
+    return houses
+
 
 async def start_node(state):
     return state
@@ -62,6 +107,8 @@ async def house_node(state):
 
     user_request = state["user_request"]
     selected_flight = state["selected_flight"]
+    review_type = state.get("review_type")
+    review_comment = state.get("review_comment")
 
     # Registramos request para fallback
     set_last_user_request(user_request)
@@ -94,12 +141,16 @@ async def house_node(state):
 
     houses = await search_accommodations_tool(house_request)
 
+    if review_type == "house_criteria":
+        houses = _filter_houses_by_review_comment(houses, review_comment)
+
     # 🔎 DEBUG: Ver exactamente qué devuelve el planner
     logger.info(f"[house_node] Houses returned: {len(houses)} opciones")
 
     return {
         "house_options": houses,
-        "status": "pending_house_selection"
+        "status": "pending_house_selection",
+        "review_type": None,
     }
 
 

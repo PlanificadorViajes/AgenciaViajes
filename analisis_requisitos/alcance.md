@@ -1,13 +1,15 @@
 # 🌍 Travel Planner MVP – Alcance del Sistema  
-## Sistema Multi‑Agente con Orquestación Centralizada y Human‑in‑the‑Loop
+## Sistema Multi‑Agente Orquestado con LangGraph y Human‑in‑the‑Loop
 
 ---
 
 # 1️⃣ Alcance Funcional del MVP
 
-## ✅ Funcionalidades Incluidas
+El sistema implementa un flujo completo de planificación de viajes mediante una arquitectura multi‑agente orquestada con **LangGraph (StateGraph)**.
 
-El MVP actual implementa un sistema completo de planificación de viajes con arquitectura multi‑agente y control iterativo mediante intervención humana.
+---
+
+## ✅ Funcionalidades Incluidas
 
 ### 📌 Entrada de Usuario
 
@@ -20,6 +22,8 @@ El sistema permite crear una solicitud de viaje con:
 - Número de pasajeros
 - Presupuesto máximo
 
+La solicitud activa el grafo desde el nodo `start`.
+
 ---
 
 ### ✈️ Fase 1 – Búsqueda y Selección de Vuelo
@@ -28,6 +32,7 @@ El sistema permite crear una solicitud de viaje con:
 - Evaluación automática mediante scoring ponderado.
 - Visualización transparente del desglose de puntuación.
 - Selección explícita por parte del usuario.
+- Estado devuelto: `pending_flight_selection`.
 
 ---
 
@@ -36,9 +41,10 @@ El sistema permite crear una solicitud de viaje con:
 - Cálculo automático del presupuesto restante.
 - Generación de alojamientos sintéticos.
 - Evaluación mediante scoring multi‑criterio.
-- Selección explícita por parte del usuario.
-- Manejo de caso especial:
-  - Si no hay alojamiento dentro del presupuesto → el sistema informa y redirige a selección de vuelo.
+- Selección explícita del usuario.
+- Estados posibles:
+  - `pending_house_selection`
+  - `no_accommodation_budget`
 
 ---
 
@@ -48,54 +54,41 @@ El sistema permite crear una solicitud de viaje con:
 - Inclusión de:
   - Vuelo seleccionado
   - Alojamiento seleccionado
-  - Alternativas
   - Desglose presupuestario
-  - Pasos siguientes
+  - Información relevante estructurada
+- Estado devuelto: `completed`.
 
 ---
 
 ### 👤 Human‑in‑the‑Loop (HITL)
 
-El sistema soporta dos modos de revisión:
+El sistema soporta dos modos:
 
 #### 📝 Revisión editorial
-- Regenera únicamente el documento final.
+- Regenera el documento final.
 - No altera vuelo ni alojamiento.
 
 #### 🔁 Cambio de criterios (semántico)
-- Interpreta comentario del usuario mediante LLM.
+- Interpreta comentario mediante LLM.
 - Extrae restricciones estructuradas.
-- Re‑ejecuta búsqueda de vuelos o alojamientos.
+- Re‑ejecuta nodo correspondiente del grafo.
 - Devuelve nuevas opciones para confirmación explícita.
-- Nunca selecciona automáticamente sin intervención humana.
 
----
-
-### 🧠 Extracción Semántica de Restricciones
-
-El sistema incorpora un módulo LLM que:
-
-- Interpreta comentarios en español o inglés.
-- Extrae:
-  - bathrooms
-  - bedrooms
-  - beds
-  - max_guests
-- Devuelve JSON estructurado.
-- Permite filtrado dinámico sin reglas hardcodeadas.
+No existen decisiones automáticas finales sin intervención humana.
 
 ---
 
 ## 🔄 Flujo End‑to‑End Cubierto
 
 1. Usuario crea solicitud.
-2. Generación y ranking de vuelos.
-3. Selección explícita de vuelo.
-4. Generación y ranking de alojamientos.
-5. Selección explícita de alojamiento.
-6. Generación del plan final.
-7. Revisión HITL opcional.
-8. Regeneración o filtrado según feedback.
+2. Nodo `flight` genera y rankea vuelos.
+3. Usuario selecciona vuelo.
+4. Nodo `house` genera y rankea alojamientos.
+5. Usuario selecciona alojamiento.
+6. Nodo `finalize` genera plan final.
+7. Usuario puede revisar mediante nodo `review`.
+
+Todo el flujo está gobernado por `TravelState`.
 
 ---
 
@@ -104,88 +97,73 @@ El sistema incorpora un módulo LLM que:
 - Usuario viajero
 - Frontend React
 - Backend FastAPI
-- TravelOrchestrator
-- FlightPlannerAgent
-- FlightAnalystAgent
-- HousePlannerAgent
-- HouseAnalystAgent
-- DocumentalistAgent
-- Módulo LLM (Constraint Extractor)
+- LangGraph (motor de orquestación)
+- Nodos del grafo
+- Módulo LLM
 
 ---
 
 ## 🚫 Fuera de Alcance
 
-El MVP **NO incluye**:
+El MVP NO incluye:
 
-- Integraciones reales con APIs externas.
-- Scraping real.
-- Persistencia en base de datos.
-- Autenticación o multiusuario.
-- Optimización matemática avanzada.
-- Gestión concurrente avanzada.
-- Infraestructura distribuida.
+- APIs reales de vuelos o alojamientos
+- Scraping real
+- Persistencia en base de datos
+- Autenticación
+- Multiusuario
+- Infraestructura distribuida
+- Entorno productivo
 
-El sistema opera en modo sintético (mock data).
+El sistema opera con datos sintéticos.
 
 ---
 
 # 2️⃣ Alcance Técnico
 
+---
+
 ## 🏗 Arquitectura
 
 - Arquitectura modular monolítica.
-- Orquestación centralizada mediante clase `TravelOrchestrator`.
+- Orquestación declarativa mediante `StateGraph`.
 - Backend stateless.
-- Flujo dirigido por estados (`status`).
+- Flujo dirigido por estado explícito.
 - Comunicación frontend ↔ backend vía REST.
 
 ---
 
 ## 🧩 Componentes Principales
 
-- API Layer (FastAPI)
-- TravelOrchestrator
-- Agentes especializados:
-  - FlightPlanner
-  - FlightAnalyst
-  - HousePlanner
-  - HouseAnalyst
-  - Documentalist
-- Cliente LLM (Azure compatible)
-- Frontend React basado en estados (`step`)
+- FastAPI (API Layer)
+- LangGraph (Orquestación)
+- Nodos del grafo
+- Módulos de dominio
+- Cliente LLM
+- Frontend React
 
 ---
 
 ## 🔁 Orquestación
 
-La lógica de flujo depende del `status` devuelto por backend:
+El flujo se define mediante:
 
-- `pending_flight_selection`
-- `pending_house_selection`
-- `completed`
-- `revised`
-- `no_accommodation_budget`
-- `error`
+```python
+builder.add_edge(...)
+builder.add_conditional_edges(...)
+```
 
-El frontend reacciona explícitamente a cada estado.
+No existe secuencia imperativa externa.
 
 ---
 
 ## 🧠 Gestión de Estado
 
-El backend es stateless.
+El estado se define mediante `TravelState`.
 
-El frontend mantiene:
+El backend no mantiene sesiones persistentes.
 
-- step
-- selectedFlight
-- selectedHouse
-- finalPlan
-- flightOptions
-- houseOptions
-
-No existe persistencia entre reinicios.
+El frontend mantiene estado temporal para renderizado.
 
 ---
 
@@ -193,94 +171,92 @@ No existe persistencia entre reinicios.
 
 Incluye:
 
-- Manejo de excepciones en orquestador.
-- Logging estructurado.
-- Estado explícito para presupuesto insuficiente.
-- Mensaje claro al usuario.
+- Estado `error`
+- Estado `no_accommodation_budget`
+- Logging básico
+- Manejo de excepciones en nodos
 
 No incluye:
 
-- Retries automáticos.
-- Circuit breakers.
-- Clasificación avanzada de errores.
+- Retries automáticos
+- Circuit breakers
+- Observabilidad avanzada
 
 ---
 
 ## 💾 Persistencia
 
-El MVP no implementa persistencia estructurada.
-
-- No hay base de datos.
-- No se almacenan sesiones.
-- No hay versionado histórico.
+No hay base de datos.
+No se almacenan sesiones.
+No hay versionado histórico.
 
 ---
 
 # 3️⃣ Objetivos del Sistema
 
+---
+
 ## 🎯 Estratégicos
 
-- Validar arquitectura multi‑agente modular.
+- Validar arquitectura multi‑agente orquestada con LangGraph.
 - Demostrar integración controlada de LLM.
-- Implementar HITL real y gobernanza explícita.
-- Mostrar diseño orientado a estado robusto.
+- Implementar HITL real.
+- Diseñar sistema basado en estado explícito.
 
 ---
 
 ## ⚙️ Operativos
 
 - Garantizar coherencia entre frontend y backend.
-- Asegurar selección explícita en cada fase.
-- Manejar correctamente presupuestos insuficientes.
+- Mantener selección explícita en cada fase.
+- Manejar correctamente presupuesto insuficiente.
 - Permitir refinamiento semántico sin romper flujo.
 
 ---
 
 # 4️⃣ Límites del Sistema
 
+---
+
 ## 🔒 Funcionales
 
 - No garantiza precios reales.
 - No valida disponibilidad real.
-- No realiza reservas reales.
+- No realiza reservas.
 
 ---
 
 ## 🧱 Técnicos
 
 - Memoria volátil.
-- Sin paralelización.
-- Dependencia directa del LLM para interpretación semántica.
-- Sin infraestructura de producción.
+- Sin paralelización avanzada.
+- Dependencia del LLM para interpretación semántica.
+- No preparado para alta concurrencia.
 
 ---
 
 # 5️⃣ Supuestos Clave
 
+---
+
 ## 🧪 Técnicos
 
-- El LLM devuelve JSON correctamente formateado.
-- Los modelos Pydantic mantienen coherencia estructural.
+- El LLM devuelve JSON válido.
 - El frontend respeta el contrato de estados.
+- Los modelos mantienen coherencia estructural.
 
 ---
 
 ## 👤 De Usuario
 
-- El usuario proporciona datos válidos.
-- El usuario confirma explícitamente tras cambios.
-
----
-
-## 🖥️ Infraestructura
-
-- Sistema mono‑instancia.
-- Uso académico / demostrativo.
-- Baja concurrencia.
+- El usuario introduce datos válidos.
+- Confirma explícitamente tras cambios.
 
 ---
 
 # 6️⃣ Riesgos Identificados
+
+---
 
 ## 🛠 Técnicos
 
@@ -293,7 +269,7 @@ El MVP no implementa persistencia estructurada.
 ## 📉 Experiencia de Usuario
 
 - Presupuesto insuficiente frecuente.
-- Falta de datos reales.
+- Datos no reales.
 - Latencia acumulada por re‑ejecuciones.
 
 ---
@@ -301,30 +277,19 @@ El MVP no implementa persistencia estructurada.
 ## 📈 Escalabilidad
 
 - No preparado para múltiples sesiones concurrentes.
-- Sin separación de workers.
 - Sin cache.
-
----
-
-# 7️⃣ Métricas de Éxito (KPIs del MVP)
-
-- Flujo completo sin errores.
-- Re‑ejecución correcta tras cambio de criterios.
-- Consistencia del estado frontend.
-- Manejo correcto de presupuesto insuficiente.
-- Coherencia estructural del output final.
+- Sin separación de workers.
 
 ---
 
 # ✅ Conclusión
 
-El MVP actual implementa correctamente:
+El MVP implementa:
 
-- Arquitectura multi‑agente modular.
-- Orquestación centralizada.
+- Orquestación declarativa con LangGraph.
+- Flujo multi‑agente modular.
+- HITL real.
 - Scoring explicable.
-- Refinamiento semántico con LLM.
-- Human‑in‑the‑Loop real.
-- Manejo robusto de estados y presupuesto.
+- Estado explícito y controlado.
 
-El sistema está bien delimitado como experimento técnico arquitectónico y constituye una base sólida para futuras extensiones.
+El sistema está bien delimitado como demostración arquitectónica y constituye una base sólida para evolución futura.
