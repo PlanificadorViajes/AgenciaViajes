@@ -352,11 +352,7 @@ frontend/
 
 ---
 
-# Comprobación de comunicación de agentes
 
-<img width="660" height="205" alt="image" src="https://github.com/user-attachments/assets/aa39ec56-f0a0-46de-9918-0e0b9d6b4313" />
-
----
 
 # ✅ Capacidades del MVP
 
