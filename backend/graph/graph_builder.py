@@ -28,10 +28,45 @@ def build_travel_graph(
     # Entrada
     builder.set_entry_point("start")
 
-    # Flujo principal
-    builder.add_edge("start", "flight")
+    # -----------------------------
+    # ROUTER INICIAL
+    # Si viene un review_type, saltamos a review
+    # -----------------------------
+
+    def start_router(state):
+        if state.get("review_type"):
+            return "review"
+        return "flight"
+
+    builder.add_conditional_edges(
+        "start",
+        start_router,
+        {
+            "review": "review",
+            "flight": "flight",
+        },
+    )
     builder.add_edge("flight", "house")
-    builder.add_edge("house", "finalize")
+
+    # -----------------------------
+    # Salida desde house
+    # Si viene de HITL (house_criteria) no debe ir a finalize automáticamente
+    # -----------------------------
+
+    def house_router(state):
+        if state.get("review_type") == "house_criteria":
+            return END
+        return "finalize"
+
+    builder.add_conditional_edges(
+        "house",
+        house_router,
+        {
+            "finalize": "finalize",
+            END: END,
+        },
+    )
+
     builder.add_edge("finalize", END)
 
     # -----------------------------
