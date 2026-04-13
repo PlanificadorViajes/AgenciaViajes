@@ -201,14 +201,37 @@ export default function App() {
           context: {
             user_request: requestPayload,
             selected_flight: selectedFlight,
-            selected_house: selectedHouse
+            selected_house: selectedHouse,
+            final_plan: finalPlan
           }
         })
       })
 
+      // ✅ Caso descarga archivo (approve)
+      if (decision === "approve") {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+
+        const disposition = response.headers.get("Content-Disposition")
+        let filename = "travel_itinerary.md"
+        if (disposition && disposition.includes("filename=")) {
+          filename = disposition.split("filename=")[1]
+        }
+
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(url)
+        return
+      }
+
       const data = await response.json()
 
-      if (data.status === "revised" || data.status === "completed") {
+      if (data.status === "completed") {
+        setSelectedFlight(data.selected_flight || selectedFlight)
         setFinalPlan(data.travel_plan)
         setStep("completed")
       }

@@ -8,6 +8,13 @@ logger = logging.getLogger(__name__)
 
 
 def _filter_houses_by_review_comment(houses, comment):
+    """
+    Ranking inteligente (Opción B):
+    - No elimina completamente opciones
+    - Penaliza estructuralmente si no cumple requisitos
+    - Ordena por proximidad a los criterios del usuario
+    """
+
     if not comment:
         return houses
 
@@ -15,36 +22,47 @@ def _filter_houses_by_review_comment(houses, comment):
     bedrooms_pattern = re.search(r"(\d+)\s*(?:dormitorios?|habitaciones?|rooms?)", comment, re.IGNORECASE)
     bathrooms_pattern = re.search(r"(\d+)\s*(?:bañ?os?|bathrooms?)", comment, re.IGNORECASE)
 
-    min_beds = int(beds_pattern.group(1)) if beds_pattern else None
-    min_bedrooms = int(bedrooms_pattern.group(1)) if bedrooms_pattern else None
-    min_bathrooms = int(bathrooms_pattern.group(1)) if bathrooms_pattern else None
+    target_beds = int(beds_pattern.group(1)) if beds_pattern else None
+    target_bedrooms = int(bedrooms_pattern.group(1)) if bedrooms_pattern else None
+    target_bathrooms = int(bathrooms_pattern.group(1)) if bathrooms_pattern else None
 
-    if not any([min_beds, min_bedrooms, min_bathrooms]):
+    if not any([target_beds, target_bedrooms, target_bathrooms]):
         return houses
 
-    filtered = []
+    scored = []
+
     for house in houses:
         beds = house.get("beds") or 0
         bedrooms = house.get("bedrooms") or 0
         bathrooms = house.get("bathrooms") or 0
 
-        if min_beds is not None and beds < min_beds:
-            continue
-        if min_bedrooms is not None and bedrooms < min_bedrooms:
-            continue
-        if min_bathrooms is not None and bathrooms < min_bathrooms:
-            continue
+        penalty = 0
 
-        filtered.append(house)
+        if target_beds is not None:
+            penalty += abs(beds - target_beds) * 15
 
-    if filtered:
-        logger.info(
-            f"[house_node] Filtrado HITL -> beds>={min_beds}, bedrooms>={min_bedrooms}, bathrooms>={min_bathrooms} -> {len(filtered)} opciones"
-        )
-        return filtered
+        if target_bedrooms is not None:
+            penalty += abs(bedrooms - target_bedrooms) * 20
 
-    logger.warning("[house_node] Filtro HITL dejó 0 opciones; devolviendo lista original")
-    return houses
+        if target_bathrooms is not None:
+            penalty += abs(bathrooms - target_bathrooms) * 25
+
+        base_score = house.get("score", 0)
+        adjusted_score = base_score - penalty
+
+        house_copy = dict(house)
+        house_copy["score"] = max(adjusted_score, 0)
+        house_copy["hitl_penalty"] = penalty
+
+        scored.append(house_copy)
+
+    scored.sort(key=lambda x: x["score"], reverse=True)
+
+    logger.info(
+        f"[house_node] Ranking HITL aplicado -> beds={target_beds}, bedrooms={target_bedrooms}, bathrooms={target_bathrooms}"
+    )
+
+    return scored
 
 
 async def start_node(state):

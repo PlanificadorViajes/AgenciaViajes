@@ -126,14 +126,69 @@ async def review_plan(payload: dict):
         # ⚠️ Forzamos llamada directa a house_node SIEMPRE
         return await house_node(state)
 
-    # ✅ Caso HITL: recalcular vuelos (reinicio completo)
-    if review_type in {"criteria", "flight_criteria"}:
+    # ✅ Caso HITL: recalcular SOLO vuelo y mantener alojamiento
+    if review_type == "flight_criteria":
+        from backend.graph.nodes import flight_node, finalize_node
+
+        # 1️⃣ Recalcular vuelos
+        flight_result = await flight_node({
+            "user_request": user_request
+        })
+
+        flight_options = flight_result.get("flight_options", [])
+        if not flight_options:
+            return flight_result
+
+        # 2️⃣ Elegimos el mejor vuelo automáticamente (top score)
+        new_flight = flight_options[0]
+
+        # 3️⃣ Mantener alojamiento actual y regenerar plan final
         state = {
             "user_request": user_request,
-            "review_type": review_type,
-            "review_comment": payload["comment"],
+            "selected_flight": new_flight,
+            "selected_house": selected_house,
+        }
+
+        result = await finalize_node(state)
+
+        # ✅ Devolver también el nuevo vuelo al frontend
+        result["selected_flight"] = new_flight
+
+        return result
+
+    # ✅ Caso HITL: reinicio completo (legacy)
+    if review_type == "criteria":
+        state = {
+            "user_request": user_request,
         }
         return await travel_graph.ainvoke(state)
+
+    # ✅ Caso HITL: aprobación → devolver archivo descargable (.md)
+    if review_type == "approve":
+        from fastapi.responses import Response
+        from datetime import datetime
+
+        travel_plan = payload.get("context", {}).get("final_plan")
+
+        if not travel_plan:
+            # fallback: regenerar con datos actuales
+            from backend.graph.nodes import finalize_node
+            result = await finalize_node({
+                "user_request": user_request,
+                "selected_flight": selected_flight,
+                "selected_house": selected_house,
+            })
+            travel_plan = result.get("travel_plan")
+
+        filename = f"travel_itinerary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+
+        return Response(
+            content=travel_plan,
+            media_type="text/markdown",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
 
     # ✅ Caso editorial u otros → flujo normal
     state = {

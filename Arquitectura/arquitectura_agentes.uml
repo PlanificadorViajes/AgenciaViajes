@@ -1,0 +1,68 @@
+@startuml
+title Arquitectura Sistema Multi‑Agente - Travel Planner
+
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+actor Usuario
+
+package "Presentación" {
+    component "Frontend (React)" as FE
+    component "API FastAPI" as API
+}
+
+package "Orquestación" {
+    component "Graph Builder" as GraphBuilder
+    component "State" as State
+    component "Nodes" as Nodes
+    component "Agents" as Agents
+}
+
+package "Infraestructura IA" {
+    component "LLM Client" as LLM
+    component "Tools" as Tools
+}
+
+package "Dominio (Clean Architecture)" {
+    component "Flight Planner" as FlightPlanner
+    component "Flight Analyst" as FlightAnalyst
+    component "House Planner" as HousePlanner
+    component "House Analyst" as HouseAnalyst
+    component "Documentalist" as Documentalist
+}
+
+package "Servicios Externos" {
+    component "Flight APIs" as FlightAPI
+    component "Accommodation APIs" as HouseAPI
+}
+
+' Flujo usuario
+Usuario --> FE
+FE --> API : REST Calls
+API --> GraphBuilder : build_travel_graph()
+
+' Orquestación interna
+GraphBuilder --> Nodes
+Nodes --> State : read/write
+Nodes --> Agents
+Agents --> LLM : prompt + context
+LLM --> Agents : response / tool call
+
+Agents --> Tools : invoke
+Tools --> FlightPlanner
+Tools --> FlightAnalyst
+Tools --> HousePlanner
+Tools --> HouseAnalyst
+Tools --> Documentalist
+
+' Conexiones dominio a externo
+FlightPlanner --> FlightAPI
+HousePlanner --> HouseAPI
+
+' Finalización
+Documentalist --> Nodes
+Nodes --> API
+API --> FE
+FE --> Usuario
+
+@enduml
